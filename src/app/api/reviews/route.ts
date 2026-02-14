@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { checkReviewQuality } from '@/lib/gemini-review-check'
+import { spendScarab } from '@/lib/scarab'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const where: any = {}
-    
+
     if (category) {
       where.project = { category }
     }
@@ -27,14 +28,15 @@ export async function GET(request: NextRequest) {
         reviewer: { select: { address: true, displayName: true, avatarUrl: true } },
         project: { select: { id: true, name: true, category: true, image: true } },
       },
-      orderBy: sort === 'new' 
-        ? { createdAt: 'desc' }
-        : sort === 'top'
-        ? [{ upvotes: 'desc' }, { downvotes: 'asc' }]
-        : { createdAt: 'desc' },
+      orderBy:
+        sort === 'new'
+          ? { createdAt: 'desc' }
+          : sort === 'top'
+          ? [{ upvotes: 'desc' }, { downvotes: 'asc' }]
+          : { createdAt: 'desc' },
     })
 
-    const transformed = reviews.map(r => ({
+    const transformed = reviews.map((r) => ({
       id: r.id,
       projectId: r.project.id,
       projectName: r.project.name,
@@ -64,29 +66,32 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { reviewerAddress, projectId, rating, content } = body
-    
-    if (!reviewerAddress || !projectId || !rating || !content) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
-    }
+    const { address, projectId, rating, content } = body
 
-    if (content.length < 10) {
-      return NextResponse.json({ error: 'Content must be at least 10 characters' }, { status: 400 })
+    if (!address || !projectId || !rating) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
     }
 
     if (rating < 1 || rating > 5) {
       return NextResponse.json({ error: 'Rating must be between 1 and 5' }, { status: 400 })
     }
 
+    // Spend Scarab (-2 for review)
+    try {
+      await spendScarab(address, 'review_spend', projectId)
+    } catch (e: any) {
+      return NextResponse.json({ error: e.message }, { status: 400 })
+    }
+
     // Find or create user
     let user = await prisma.user.findUnique({
-      where: { address: reviewerAddress.toLowerCase() },
+      where: { address: address.toLowerCase() },
     })
     if (!user) {
       user = await prisma.user.create({
         data: {
-          address: reviewerAddress.toLowerCase(),
-          displayName: reviewerAddress.substring(0, 10),
+          address: address.toLowerCase(),
+          displayName: address.substring(0, 10),
         },
       })
     }
@@ -100,18 +105,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }
 
-    // Quality check with Gemini API
-    const qualityCheck = await checkReviewQuality(content, project.name, project.category)
+    // Quality check with Gemini API (only if content provided)
+    let qualityCheck: {
+      status: 'approved' | 'flagged' | 'rejected'
+      score: number
+      reason: string
+      qualityIssues: string[]
+    } = { status: 'approved', score: 100, reason: '', qualityIssues: [] }
+    if (content && content.trim().length > 0) {
+      qualityCheck = await checkReviewQuality(content, project.name, project.category)
 
-    if (qualityCheck.status === 'rejected') {
-      return NextResponse.json(
-        {
-          error: 'Review rejected - quality check failed',
-          details: qualityCheck.reason,
-          qualityIssues: qualityCheck.qualityIssues,
-        },
-        { status: 400 }
-      )
+      if (qualityCheck.status === 'rejected') {
+        return NextResponse.json(
+          {
+            error: 'Review rejected - quality check failed',
+            details: qualityCheck.reason,
+            qualityIssues: qualityCheck.qualityIssues,
+          },
+          { status: 400 }
+        )
+      }
     }
 
     // Create review
@@ -120,7 +133,7 @@ export async function POST(request: NextRequest) {
         reviewerId: user.id,
         projectId: project.id,
         rating,
-        content,
+        content: content?.trim() || '',
         status: qualityCheck.status === 'flagged' ? 'flagged' : 'active',
       },
       include: {
@@ -140,20 +153,23 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    return NextResponse.json({
-      id: review.id,
-      projectId: review.project.id,
-      projectName: review.project.name,
-      reviewerAddress: review.reviewer.address,
-      rating: review.rating,
-      content: review.content,
-      category: review.project.category,
-      upvotes: review.upvotes,
-      downvotes: review.downvotes,
-      createdAt: review.createdAt.toISOString(),
-      qualityScore: qualityCheck.score,
-      qualityStatus: qualityCheck.status,
-    }, { status: 201 })
+    return NextResponse.json(
+      {
+        id: review.id,
+        projectId: review.project.id,
+        projectName: review.project.name,
+        reviewerAddress: review.reviewer.address,
+        rating: review.rating,
+        content: review.content,
+        category: review.project.category,
+        upvotes: review.upvotes,
+        downvotes: review.downvotes,
+        createdAt: review.createdAt.toISOString(),
+        qualityScore: qualityCheck.score,
+        qualityStatus: qualityCheck.status,
+      },
+      { status: 201 }
+    )
   } catch (error) {
     console.error('Error creating review:', error)
     return NextResponse.json({ error: 'Failed to create review' }, { status: 500 })
