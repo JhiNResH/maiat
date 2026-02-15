@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { SkillCard } from '@/components/SkillCard'
+import { AddProjectButton } from '@/components/AddProjectButton'
 import Link from 'next/link'
 import { Trophy } from 'lucide-react'
 
@@ -49,13 +50,16 @@ export default async function CategoryPage({
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-3xl font-bold">{meta.title}</h1>
-            <Link
-              href={`/m/${params.category}/leaderboard`}
-              className="flex items-center gap-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 px-4 py-2 rounded-lg transition-colors border border-amber-500/30"
-            >
-              <Trophy className="w-5 h-5" />
-              <span className="font-semibold">Leaderboard</span>
-            </Link>
+            <div className="flex items-center gap-3">
+              <AddProjectButton category={cat} />
+              <Link
+                href={`/m/${params.category}/leaderboard`}
+                className="flex items-center gap-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 px-4 py-2 rounded-lg transition-colors border border-amber-500/30"
+              >
+                <Trophy className="w-5 h-5" />
+                <span className="font-semibold">Leaderboard</span>
+              </Link>
+            </div>
           </div>
           <p className="text-zinc-400">{meta.desc}</p>
           <div className="flex gap-4 mt-4 text-sm text-zinc-500">

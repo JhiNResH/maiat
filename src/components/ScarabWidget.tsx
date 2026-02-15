@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
+import { ShoppingCart, History } from 'lucide-react'
+import { ScarabPurchasePanel } from './ScarabPurchasePanel'
+import { ScarabHistoryPanel } from './ScarabHistoryPanel'
 
 interface ScarabBalance {
   balance: number
@@ -16,6 +19,8 @@ export function ScarabWidget() {
   const [balance, setBalance] = useState<ScarabBalance | null>(null)
   const [claiming, setClaiming] = useState(false)
   const [claimResult, setClaimResult] = useState<{ amount: number; streak: number } | null>(null)
+  const [showPurchase, setShowPurchase] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
 
   const address = user?.wallet?.address
 
@@ -123,7 +128,41 @@ export function ScarabWidget() {
             )}
           </div>
         )}
+
+        {/* Actions */}
+        <div className="mt-3 pt-3 border-t border-zinc-800 flex gap-2">
+          <button
+            onClick={() => setShowPurchase(true)}
+            className="flex-1 flex items-center justify-center gap-1 bg-amber-900/30 hover:bg-amber-900/50 text-amber-400 text-xs py-2 rounded-lg transition-colors border border-amber-500/30"
+          >
+            <ShoppingCart className="w-3 h-3" />
+            <span>Buy</span>
+          </button>
+          <button
+            onClick={() => setShowHistory(true)}
+            className="flex-1 flex items-center justify-center gap-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 text-xs py-2 rounded-lg transition-colors"
+          >
+            <History className="w-3 h-3" />
+            <span>History</span>
+          </button>
+        </div>
       </div>
+
+      {/* Modals */}
+      {showPurchase && (
+        <ScarabPurchasePanel
+          onClose={() => setShowPurchase(false)}
+          onSuccess={() => {
+            fetchBalance()
+            setShowPurchase(false)
+          }}
+        />
+      )}
+      {showHistory && (
+        <ScarabHistoryPanel
+          onClose={() => setShowHistory(false)}
+        />
+      )}
     </div>
   )
 }
