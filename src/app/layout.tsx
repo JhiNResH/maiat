@@ -1,6 +1,9 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
+import { PrivyProvider } from '@/components/PrivyProvider'
+import { ScarabWidget } from '@/components/ScarabWidget'
+import { TopNav } from '@/components/TopNav'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -16,7 +19,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        <PrivyProvider>
+          <TopNav />
+          {children}
+          <ScarabWidget />
+        </PrivyProvider>
+      </body>
     </html>
   )
 }
