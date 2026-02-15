@@ -5,9 +5,10 @@ import { ChevronLeft, Trophy, Medal } from 'lucide-react'
 export default async function LeaderboardPage({
   params,
 }: {
-  params: { category: string }
+  params: Promise<{ category: string }>
 }) {
-  const cat = `m/${params.category}`
+  const { category: categorySlug } = await params
+  const cat = `m/${categorySlug}`
 
   const projects = await prisma.project.findMany({
     where: { category: cat },
@@ -24,11 +25,11 @@ export default async function LeaderboardPage({
         {/* Header */}
         <div className="mb-8">
           <Link
-            href={`/m/${params.category}`}
+            href={`/m/${categorySlug}`}
             className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors mb-4"
           >
             <ChevronLeft className="w-5 h-5" />
-            <span>Back to {params.category}</span>
+            <span>Back to {categorySlug}</span>
           </Link>
 
           <div className="flex items-center gap-3 mb-4">

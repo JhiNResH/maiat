@@ -5,6 +5,7 @@ import { TrustBadge } from './TrustBadge'
 import { VoteButtons } from './VoteButtons'
 import { ReviewForm } from './ReviewForm'
 import { ExternalLink, ChevronDown, ChevronUp } from 'lucide-react'
+import Link from 'next/link'
 
 interface SkillCardProps {
   id: string
@@ -15,6 +16,7 @@ interface SkillCardProps {
   avgRating: number
   reviewCount: number
   website?: string | null
+  category?: string
   upvotes?: number
   downvotes?: number
 }
@@ -28,6 +30,7 @@ export function SkillCard({
   avgRating,
   reviewCount,
   website,
+  category,
   upvotes = 0,
   downvotes = 0,
 }: SkillCardProps) {
@@ -69,7 +72,13 @@ export function SkillCard({
         {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <h3 className="font-semibold text-white truncate">{name}</h3>
+            {category ? (
+              <Link href={`/m/${category.replace('m/', '')}/${id}`} className="font-semibold text-white truncate hover:text-purple-300 transition-colors">
+                {name}
+              </Link>
+            ) : (
+              <h3 className="font-semibold text-white truncate">{name}</h3>
+            )}
             <TrustBadge status={status} size="sm" />
             {website && (
               <a
