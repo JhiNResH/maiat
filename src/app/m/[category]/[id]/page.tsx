@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic'
 import { TrustBadge } from '@/components/TrustBadge'
 import { ReviewForm } from '@/components/ReviewForm'
 import { VoteButtons } from '@/components/VoteButtons'
+import { OnChainBadge } from '@/components/OnChainBadge'
 import Link from 'next/link'
 import { ArrowLeft, ExternalLink, Star, ThumbsUp, ThumbsDown, Clock, Shield } from 'lucide-react'
 
@@ -195,13 +196,19 @@ export default async function ProjectDetailPage({
                     {/* Content */}
                     <p className="text-zinc-300 text-sm leading-relaxed">{review.content}</p>
 
-                    {/* Review Votes */}
+                    {/* Review Votes + On-Chain Status */}
                     <div className="flex items-center gap-3 mt-3 text-xs text-zinc-600">
                       <span className="flex items-center gap-1">
                         <ThumbsUp className="w-3 h-3" /> {review.upvotes}
                       </span>
                       <span className="flex items-center gap-1">
                         <ThumbsDown className="w-3 h-3" /> {review.downvotes}
+                      </span>
+                      <span className="ml-auto">
+                        <OnChainBadge
+                          reviewId={review.id}
+                          txHash={(review as any).txHash}
+                        />
                       </span>
                     </div>
                   </div>

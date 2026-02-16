@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { checkReviewQuality } from '@/lib/gemini-review-check'
 import { spendScarab } from '@/lib/scarab'
+import { hashReviewContent, submitReviewOnChain, isOnChainEnabled, getExplorerUrl } from '@/lib/onchain'
 
 export const dynamic = 'force-dynamic'
 
@@ -127,13 +128,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Hash review content for on-chain proof
+    const reviewContent = content?.trim() || ''
+    const contentHash = hashReviewContent(reviewContent, rating, user.id)
+
     // Create review
     const review = await prisma.review.create({
       data: {
         reviewerId: user.id,
         projectId: project.id,
         rating,
-        content: content?.trim() || '',
+        content: reviewContent,
+        contentHash,
         status: qualityCheck.status === 'flagged' ? 'flagged' : 'active',
       },
       include: {
@@ -141,6 +147,29 @@ export async function POST(request: NextRequest) {
         project: { select: { id: true, name: true, category: true, image: true } },
       },
     })
+
+    // Attempt on-chain submission (non-blocking, best-effort)
+    let onChainResult: { txHash: string; explorerUrl: string } | null = null
+    if (isOnChainEnabled() && qualityCheck.status !== 'flagged') {
+      try {
+        const result = await submitReviewOnChain(project.category, project.id, contentHash)
+        if (result) {
+          await prisma.review.update({
+            where: { id: review.id },
+            data: {
+              txHash: result.txHash,
+              onChainReviewId: result.reviewId,
+            },
+          })
+          onChainResult = {
+            txHash: result.txHash,
+            explorerUrl: getExplorerUrl(result.txHash),
+          }
+        }
+      } catch (e) {
+        console.error('On-chain submission failed (non-critical):', e)
+      }
+    }
 
     // Update project stats
     await prisma.project.update({
@@ -167,6 +196,8 @@ export async function POST(request: NextRequest) {
         createdAt: review.createdAt.toISOString(),
         qualityScore: qualityCheck.score,
         qualityStatus: qualityCheck.status,
+        contentHash,
+        onChain: onChainResult,
       },
       { status: 201 }
     )

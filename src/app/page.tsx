@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
 import { Shield, Zap, Users, TrendingUp, ArrowRight, Star, MessageSquare } from 'lucide-react'
+import { OnChainStats } from '@/components/OnChainStats'
 
 export const dynamic = 'force-dynamic'
 
@@ -181,6 +182,9 @@ export default async function Home() {
           ))}
         </div>
       </section>
+
+      {/* On-Chain Verification Stats */}
+      <OnChainStats />
 
       {/* How It Works */}
       <section className="max-w-5xl mx-auto px-4 pb-16">

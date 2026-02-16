@@ -83,6 +83,11 @@ model Review {
   // Status
   status          String    @default("active") // active, flagged, removed
   
+  // On-chain verification (BSC Testnet)
+  txHash          String?   // BSC transaction hash
+  contentHash     String?   // keccak256 of review content
+  onChainReviewId String?   // ReviewRegistry reviewId (bytes32)
+  
   // Timestamps
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -97,6 +102,7 @@ model Review {
   @@index([reviewerId])
   @@index([projectId])
   @@index([createdAt])
+  @@index([txHash])
 }
 
 // Vote on a review (upvote/downvote)
