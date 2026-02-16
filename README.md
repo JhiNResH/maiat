@@ -1,4 +1,4 @@
-# Maat V2 🪲
+# Maiat 🪲
 
 Clean scaffold for Maat - Trust Layer for Agentic Commerce.
 
