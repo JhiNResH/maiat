@@ -3,6 +3,10 @@ import { prisma } from '@/lib/prisma'
 import { checkReviewQuality } from '@/lib/gemini-review-check'
 import { spendScarab } from '@/lib/scarab'
 import { hashReviewContent, submitReviewOnChain, isOnChainEnabled, getExplorerUrl } from '@/lib/onchain'
+import { reviewSubmitLimiter, checkRateLimit } from '@/lib/ratelimit'
+import { reviewSubmitSchema, getReviewSignatureMessage } from '@/lib/validation'
+import { verifyWalletSignature, isTimestampValid } from '@/lib/signature'
+import type { Hex } from 'viem'
 
 export const dynamic = 'force-dynamic'
 
@@ -67,14 +71,71 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { address, projectId, rating, content } = body
-
-    if (!address || !projectId || !rating) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+    
+    // **SECURITY FIX #5: Input Validation**
+    const validationResult = reviewSubmitSchema.safeParse(body)
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { 
+          error: 'Invalid input', 
+          details: validationResult.error.issues 
+        }, 
+        { status: 400 }
+      )
     }
 
-    if (rating < 1 || rating > 5) {
-      return NextResponse.json({ error: 'Rating must be between 1 and 5' }, { status: 400 })
+    const { address, projectId, rating, content, signature } = validationResult.data
+    const reviewContent = content?.trim() || ''
+    const timestamp = body.timestamp as number | undefined
+
+    // **SECURITY FIX #1: Wallet Signature Verification (CRITICAL)**
+    if (!timestamp || !isTimestampValid(timestamp)) {
+      return NextResponse.json(
+        { error: 'Invalid or expired timestamp (must be within ±5 minutes)' },
+        { status: 400 }
+      )
+    }
+
+    const signatureMessage = getReviewSignatureMessage({
+      address,
+      projectId,
+      rating,
+      content: reviewContent,
+      timestamp,
+    })
+
+    const isValidSignature = await verifyWalletSignature(
+      signatureMessage,
+      signature as Hex,
+      address as Hex
+    )
+
+    if (!isValidSignature) {
+      return NextResponse.json(
+        { error: 'Invalid signature - wallet verification failed' },
+        { status: 403 }
+      )
+    }
+
+    // **SECURITY FIX #2: Rate Limiting (CRITICAL)**
+    const rateLimitResult = await checkRateLimit(reviewSubmitLimiter, address)
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        {
+          error: 'Rate limit exceeded',
+          limit: rateLimitResult.limit,
+          remaining: rateLimitResult.remaining,
+          resetAt: rateLimitResult.reset.toISOString(),
+        },
+        { 
+          status: 429,
+          headers: {
+            'X-RateLimit-Limit': rateLimitResult.limit.toString(),
+            'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
+            'X-RateLimit-Reset': rateLimitResult.reset.getTime().toString(),
+          }
+        }
+      )
     }
 
     // Spend Scarab (-2 for review)
@@ -129,7 +190,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Hash review content for on-chain proof
-    const reviewContent = content?.trim() || ''
     const contentHash = hashReviewContent(reviewContent, rating, user.id)
 
     // Create review

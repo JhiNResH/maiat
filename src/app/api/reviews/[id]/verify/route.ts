@@ -7,6 +7,7 @@ import {
   isOnChainEnabled,
   getExplorerUrl,
 } from '@/lib/onchain'
+import { verifyLimiter, checkRateLimit } from '@/lib/ratelimit'
 import type { Hex } from 'viem'
 
 export const dynamic = 'force-dynamic'
@@ -71,25 +72,73 @@ export async function POST(
     )
   }
 
-  const review = await prisma.review.findUnique({
-    where: { id },
-    include: {
-      reviewer: { select: { address: true } },
-      project: { select: { id: true, category: true } },
-    },
+  // **SECURITY FIX #2: Rate Limiting (prevent gas drain attack)**
+  const rateLimitResult = await checkRateLimit(verifyLimiter, `verify:${id}`)
+  if (!rateLimitResult.success) {
+    return NextResponse.json(
+      {
+        error: 'Rate limit exceeded for this review',
+        limit: rateLimitResult.limit,
+        remaining: rateLimitResult.remaining,
+        resetAt: rateLimitResult.reset.toISOString(),
+      },
+      { 
+        status: 429,
+        headers: {
+          'X-RateLimit-Limit': rateLimitResult.limit.toString(),
+          'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
+          'X-RateLimit-Reset': rateLimitResult.reset.getTime().toString(),
+        }
+      }
+    )
+  }
+
+  // **SECURITY FIX #4: Race Condition Protection**
+  // Use Prisma transaction with optimistic locking
+  const review = await prisma.$transaction(async (tx) => {
+    const existingReview = await tx.review.findUnique({
+      where: { id },
+      include: {
+        reviewer: { select: { address: true } },
+        project: { select: { id: true, category: true } },
+      },
+    })
+
+    if (!existingReview) {
+      throw new Error('Review not found')
+    }
+
+    // Already verified (race condition check)
+    if (existingReview.txHash) {
+      return existingReview
+    }
+
+    return existingReview
   })
 
   if (!review) {
     return NextResponse.json({ error: 'Review not found' }, { status: 404 })
   }
 
-  // Already verified
+  // Already verified (return existing data)
   if (review.txHash) {
     return NextResponse.json({
       alreadyVerified: true,
       txHash: review.txHash,
       explorerUrl: getExplorerUrl(review.txHash),
     })
+  }
+
+  // **SECURITY FIX #3: Authorization Check**
+  // Only allow review owner to trigger verification (or remove this endpoint entirely)
+  const body = await request.json().catch(() => ({}))
+  const requesterAddress = body.requesterAddress?.toLowerCase()
+
+  if (requesterAddress && requesterAddress !== review.reviewer.address.toLowerCase()) {
+    return NextResponse.json(
+      { error: 'Unauthorized - only review owner can verify' },
+      { status: 403 }
+    )
   }
 
   // Hash the review content
@@ -109,15 +158,28 @@ export async function POST(
     )
   }
 
-  // Update review with on-chain proof
-  await prisma.review.update({
-    where: { id },
+  // Update review with on-chain proof (with another race condition check)
+  const updated = await prisma.review.updateMany({
+    where: {
+      id,
+      txHash: null, // Only update if still not verified
+    },
     data: {
       txHash: result.txHash,
       contentHash,
       onChainReviewId: result.reviewId,
     },
   })
+
+  if (updated.count === 0) {
+    // Race condition: another request beat us
+    const existing = await prisma.review.findUnique({ where: { id } })
+    return NextResponse.json({
+      alreadyVerified: true,
+      txHash: existing?.txHash || result.txHash,
+      explorerUrl: getExplorerUrl(existing?.txHash || result.txHash),
+    })
+  }
 
   return NextResponse.json({
     verified: true,

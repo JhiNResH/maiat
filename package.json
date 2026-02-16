@@ -15,6 +15,8 @@
     "@prisma/client": "^5.22.0",
     "@privy-io/react-auth": "^1.95.0",
     "@tanstack/react-query": "^5.0.0",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.36.2",
     "clsx": "^2.1.1",
     "lucide-react": "^0.563.0",
     "next": "^16.1.6",
@@ -24,6 +26,7 @@
     "tailwind-merge": "^3.4.0",
     "viem": "^2.45.1",
     "wagmi": "^2.5.0",
+    "zod": "^4.3.6",
     "zustand": "^5.0.11"
   },
   "devDependencies": {
