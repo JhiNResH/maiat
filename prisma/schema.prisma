@@ -1,5 +1,5 @@
 // Maat V2 Database Schema (Cleaned from team-kindred)
-// Categories: m/openclaw-skills, m/ai-agents, m/memecoin, m/defi
+// Categories: m/ai-agents, m/defi
 
 generator client {
   provider = "prisma-client-js"
@@ -47,7 +47,7 @@ model Project {
   image           String?   // Logo URL
   bannerImage     String?   // Banner/cover image
   website         String?
-  category        String    @default("m/openclaw-skills") // m/openclaw-skills, m/ai-agents, m/memecoin, m/defi
+  category        String    @default("m/ai-agents") // m/ai-agents, m/defi
   
   // Aggregated stats
   avgRating       Float     @default(0)
