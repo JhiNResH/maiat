@@ -16,8 +16,8 @@ interface SidebarProps {
 }
 
 const categories = [
-  { slug: 'ai-agents', name: 'AI Agents', icon: '🤖' },
-  { slug: 'defi', name: 'DeFi Protocols', icon: '🏦' },
+  { slug: 'ai-agents', name: 'm/ ai-agents' },
+  { slug: 'defi', name: 'm/ defi' },
 ]
 
 export function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
@@ -96,7 +96,6 @@ export function Sidebar({ collapsed, setCollapsed }: SidebarProps) {
                       : 'border-transparent text-[#adadb0] hover:bg-purple-500/5 hover:text-white'
                   }`}
                 >
-                  <span className="text-base">{cat.icon}</span>
                   <span>{cat.name}</span>
                 </Link>
               )
