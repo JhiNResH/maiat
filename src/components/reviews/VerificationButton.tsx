@@ -54,6 +54,12 @@ export function VerificationButton({
         }),
       })
 
+      if (!kiteRes.ok && kiteRes.status !== 402) {
+        const errorText = await kiteRes.text()
+        console.error('Kite API error:', errorText)
+        throw new Error(`Kite API error (${kiteRes.status})`)
+      }
+
       const kiteData = await kiteRes.json()
 
       // Check if payment required (HTTP 402)
@@ -81,12 +87,21 @@ export function VerificationButton({
       })
 
       if (!ogRes.ok) {
-        throw new Error('0G verification failed')
+        const errorText = await ogRes.text()
+        console.error('0G API error:', errorText)
+        throw new Error(`0G verification failed (${ogRes.status})`)
       }
 
       const ogData = await ogRes.json()
+      
+      // Handle both response formats (direct or nested)
+      const verification = ogData.verification || ogData
+      if (!verification.score || !verification.verdict) {
+        throw new Error('Invalid 0G response format')
+      }
+      
       const verificationResult: VerificationResult = {
-        ...ogData.verification,
+        ...verification,
         kiteVerified: kiteData.success,
         kiteTxHash: kiteData.kiteChainTx,
       }
