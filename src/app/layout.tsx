@@ -4,6 +4,7 @@ import './globals.css'
 import { PrivyProvider } from '@/components/PrivyProvider'
 import { ScarabWidget } from '@/components/ScarabWidget'
 import { TopNav } from '@/components/TopNav'
+import { ClientLayout } from '@/components/ClientLayout'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -22,11 +23,15 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body className={`${inter.className} bg-[#0a0a0b]`}>
         <PrivyProvider>
-          <TopNav />
-          {children}
-          <ScarabWidget />
+          <div className="min-h-screen flex flex-col">
+            <TopNav />
+            <ClientLayout>
+              {children}
+            </ClientLayout>
+            <ScarabWidget />
+          </div>
         </PrivyProvider>
       </body>
     </html>

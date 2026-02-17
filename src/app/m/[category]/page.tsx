@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { SkillCard } from '@/components/SkillCard'
+import { ProjectCard } from '@/components/ProjectCard'
 import { AddProjectButton } from '@/components/AddProjectButton'
 import Link from 'next/link'
 import { Trophy } from 'lucide-react'
@@ -68,7 +68,7 @@ export default async function CategoryPage({
             <h2 className="text-lg font-semibold text-emerald-400 mb-3">✅ Verified Safe</h2>
             <div className="grid gap-3">
               {approved.map((p) => (
-                <SkillCard
+                <ProjectCard
                   key={p.id}
                   id={p.id}
                   name={p.name}
@@ -93,7 +93,7 @@ export default async function CategoryPage({
             </h2>
             <div className="grid gap-3">
               {pending.map((p) => (
-                <SkillCard
+                <ProjectCard
                   key={p.id}
                   id={p.id}
                   name={p.name}
@@ -117,12 +117,12 @@ export default async function CategoryPage({
               ⚠️ Flagged — Community Warnings
             </h2>
             <p className="text-xs text-red-400/60 mb-3">
-              These skills have been flagged by the community for suspicious behavior including data
+              These projects have been flagged by the community for suspicious behavior including data
               exfiltration, credential theft, or prompt injection.
             </p>
             <div className="grid gap-3">
               {flagged.map((p) => (
-                <SkillCard
+                <ProjectCard
                   key={p.id}
                   id={p.id}
                   name={p.name}
