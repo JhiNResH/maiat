@@ -17,7 +17,7 @@ let brokerInstance: ZGComputeNetworkBroker | null = null
 async function getBroker(): Promise<ZGComputeNetworkBroker> {
   if (brokerInstance) return brokerInstance
 
-  const privateKey = process.env.ZG_PRIVATE_KEY || process.env.DEPLOYER_PRIVATE_KEY
+  const privateKey = process.env.ZG_PRIVATE_KEY || process.env.PRIVATE_KEY
   if (!privateKey) throw new Error('ZG_PRIVATE_KEY not set')
 
   const provider = new ethers.JsonRpcProvider(RPC_URL)

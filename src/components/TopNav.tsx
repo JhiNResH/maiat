@@ -1,15 +1,28 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Search, SquarePen } from 'lucide-react'
 import { usePrivy } from '@privy-io/react-auth'
+import { SearchModal } from './search/SearchModal'
 
 export function TopNav() {
   const pathname = usePathname()
   const { authenticated, user, login, logout } = usePrivy()
   const [isSearchOpen, setIsSearchOpen] = useState(false)
+
+  // ⌘K shortcut to open search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        setIsSearchOpen(true)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   return (
     <header className="sticky top-0 z-50 bg-[#0a0a0b]/80 backdrop-blur-xl border-b border-[#1f1f23] h-[65px]">
@@ -21,7 +34,7 @@ export function TopNav() {
               🪲
             </div>
             <span className="text-[22px] font-bold tracking-wide text-[#d9d4e8] hidden sm:block">
-              MA'AT
+              MAIAT
               <span className="ml-1 inline-block w-1.5 h-1.5 rounded-full bg-purple-500 mb-1"></span>
             </span>
           </Link>
@@ -85,26 +98,8 @@ export function TopNav() {
         </div>
       </div>
 
-      {/* Search Modal - TODO: implement later */}
-      {isSearchOpen && (
-        <div
-          className="fixed inset-0 bg-black/60 z-50 flex items-start justify-center pt-[20vh]"
-          onClick={() => setIsSearchOpen(false)}
-        >
-          <div
-            className="bg-[#111113] border border-[#1f1f23] rounded-xl w-full max-w-2xl mx-4 p-6"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <input
-              type="text"
-              placeholder="Search..."
-              className="w-full bg-[#0a0a0b] border border-[#2a2a2e] rounded-lg px-4 py-3 text-white placeholder-[#6b6b70] focus:outline-none focus:border-purple-500"
-              autoFocus
-            />
-            <p className="text-[#6b6b70] text-sm mt-4">Search coming soon...</p>
-          </div>
-        </div>
-      )}
+      {/* Search Modal */}
+      <SearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
     </header>
   )
 }
