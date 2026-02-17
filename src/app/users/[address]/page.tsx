@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { Copy } from 'lucide-react'
 import { ScarabWidget } from '@/components/ScarabWidget'
+import { BaseVerifyButton } from '@/components/BaseVerifyButton'
 
 interface UserStats {
   reviewCount: number
@@ -105,6 +106,13 @@ export default function UserPassportPage() {
             )}
           </div>
           {copied && <p className="text-purple-400 text-sm mt-2">Copied!</p>}
+
+          {/* Base Verify Button (show only if not verified) */}
+          {!verification.baseVerified && (
+            <div className="mt-4">
+              <BaseVerifyButton onVerified={() => setVerification({ baseVerified: true, provider: 'x' })} />
+            </div>
+          )}
         </div>
 
         {/* Two Column Layout */}
