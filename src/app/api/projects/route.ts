@@ -105,7 +105,7 @@ export async function POST(request: NextRequest) {
         name,
         description: description || null,
         website: website || null,
-        category: category || 'm/openclaw-skills',
+        category: category || 'm/ai-agents',
         image: image || null,
         status: 'pending',
       },
