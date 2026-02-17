@@ -132,7 +132,7 @@ export function AddProjectForm({ category, onClose, onSuccess }: AddProjectFormP
               required
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="e.g., GitHub Skill, Uniswap V3, etc."
+              placeholder="e.g., GitHub Project, Uniswap V3, etc."
               className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2 text-white placeholder:text-zinc-600 focus:outline-none focus:border-purple-500"
             />
           </div>

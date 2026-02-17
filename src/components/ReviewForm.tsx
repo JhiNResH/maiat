@@ -55,7 +55,7 @@ export function ReviewForm({ projectId, projectName, onSuccess }: ReviewFormProp
   if (!authenticated) {
     return (
       <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-6 text-center">
-        <p className="text-zinc-400 mb-4">Sign in to review this skill</p>
+        <p className="text-zinc-400 mb-4">Sign in to review this project</p>
         <button
           onClick={login}
           className="bg-purple-500 hover:bg-purple-600 text-white font-bold py-2 px-6 rounded-lg transition-colors"
@@ -104,7 +104,7 @@ export function ReviewForm({ projectId, projectName, onSuccess }: ReviewFormProp
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          placeholder="Share your experience with this skill..."
+          placeholder="Share your experience with this project..."
           rows={4}
           className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2 text-white placeholder:text-zinc-600 focus:outline-none focus:border-purple-500"
         />

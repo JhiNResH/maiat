@@ -7,7 +7,7 @@ import { ReviewForm } from './ReviewForm'
 import { ExternalLink, ChevronDown, ChevronUp } from 'lucide-react'
 import Link from 'next/link'
 
-interface SkillCardProps {
+interface ProjectCardProps {
   id: string
   name: string
   description: string
@@ -21,7 +21,7 @@ interface SkillCardProps {
   downvotes?: number
 }
 
-export function SkillCard({
+export function ProjectCard({
   id,
   name,
   description,
@@ -33,7 +33,7 @@ export function SkillCard({
   category,
   upvotes = 0,
   downvotes = 0,
-}: SkillCardProps) {
+}: ProjectCardProps) {
   const [expanded, setExpanded] = useState(false)
   const stars = '★'.repeat(Math.round(avgRating)) + '☆'.repeat(5 - Math.round(avgRating))
 

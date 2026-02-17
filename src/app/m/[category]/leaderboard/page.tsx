@@ -34,7 +34,7 @@ export default async function LeaderboardPage({
 
           <div className="flex items-center gap-3 mb-4">
             <Trophy className="w-10 h-10 text-amber-400" />
-            <h1 className="text-3xl font-bold">Top Skills</h1>
+            <h1 className="text-3xl font-bold">Top Projects</h1>
           </div>
           <p className="text-zinc-400">
             Community-ranked trust scores. Weighted by review count and quality.
