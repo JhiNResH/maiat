@@ -1,108 +1,125 @@
 # 🚀 BSC Testnet Deployment Guide
 
-## 1️⃣ Wallet Info
+## ✅ Deployed Contract Info
 
-**Deployment Address:** `0x9028aBD05cA6ec95Bbe0F51a677b9e8E613D3755`
+**Contract Address:** `0x9453A6EA1BB1Acd31F2288971DBda8e4088EFF37`  
+**Deployer Address:** `0x872989F7fCd4048acA370161989d3904E37A3cB3`  
+**Network:** BSC Testnet (Chain ID: 97)  
+**Contract:** ReviewRegistry  
+**BscScan:** https://testnet.bscscan.com/address/0x9453A6EA1BB1Acd31F2288971DBda8e4088EFF37
 
-**Private Key:** (stored in `.env`)
-
----
-
-## 2️⃣ Get Testnet BNB
-
-### Option A: BSC Testnet (Recommended)
-1. Visit: https://testnet.bnbchain.org/faucet-smart
-2. Enter address: `0x9028aBD05cA6ec95Bbe0F51a677b9e8E613D3755`
-3. Request **0.5 tBNB** (enough for multiple deployments)
-4. Wait ~30 seconds for confirmation
-
-### Option B: opBNB Testnet (Cheaper gas, but requires BSC Testnet BNB first)
-1. Get tBNB from BSC Testnet faucet first
-2. Bridge to opBNB: https://opbnb-testnet-bridge.bnbchain.org/deposit
-3. Amount: 0.1 tBNB is enough
+**Deployment Status:** ✅ Live on BSC Testnet
 
 ---
 
-## 3️⃣ Deploy Contract
+## 📦 Repository Info
 
-Once funded, run:
+**GitHub:** https://github.com/JhiNResH/maiat  
+**Local Path:** `/Users/jhinresh/maiat`
 
-```bash
-# Check balance first
-npx hardhat run scripts/check-balance.js --network bscTestnet
+---
 
-# Deploy to BSC Testnet
-npx hardhat run scripts/deploy-review-registry.js --network bscTestnet
+## 🔧 Configuration
 
-# OR deploy to opBNB Testnet (cheaper)
-npx hardhat run scripts/deploy-review-registry.js --network opBNBTestnet
+Add to your `.env.local`:
+
+```env
+NEXT_PUBLIC_REVIEW_REGISTRY_ADDRESS=0x9453A6EA1BB1Acd31F2288971DBda8e4088EFF37
+NEXT_PUBLIC_CHAIN_ID=97
 ```
 
 ---
 
-## 4️⃣ Verify Contract
+## 🎯 Project Categories
 
-After deployment, verify on BscScan:
-
-```bash
-npx hardhat verify --network bscTestnet <CONTRACT_ADDRESS>
-```
+Current supported categories:
+- **AI Agents**
+- **DeFi**
 
 ---
 
-## 5️⃣ Test Submission
+## 🔐 Authentication
 
-Once deployed, you can test by calling `submitReview()`:
+**Privy Integration:** Configured  
+**App ID:** (stored in `.env.local`)
 
+---
+
+## 🧪 Testing the Contract
+
+### Check Contract on BscScan
+
+Visit: https://testnet.bscscan.com/address/0x9453A6EA1BB1Acd31F2288971DBda8e4088EFF37
+
+### Test Review Submission
+
+```bash
+npx hardhat run scripts/test-review-submission.js --network bscTestnet
+```
+
+Example call:
 ```javascript
-// Example call
 await registry.submitReview(
-  "m/openclaw-skills",
-  "skill-123",
-  ethers.keccak256(ethers.toUtf8Bytes("Great skill!"))
+  "AI Agents",
+  "project-xyz",
+  ethers.keccak256(ethers.toUtf8Bytes("Great AI agent!"))
 );
 ```
 
 ---
 
-## 📋 Deployment Checklist
+## 📋 Contract Functions
 
-- [ ] Testnet BNB obtained (0.1+ tBNB)
-- [ ] Balance confirmed (`check-balance.js`)
-- [ ] Contract deployed (`deploy-review-registry.js`)
-- [ ] Contract verified on BscScan
-- [ ] Test transaction submitted
-- [ ] Contract address added to `.env.local`:
-  - `NEXT_PUBLIC_REVIEW_REGISTRY_ADDRESS=<address>`
-  - `NEXT_PUBLIC_CHAIN_ID=97` (BSC Testnet) or `5611` (opBNB)
+**ReviewRegistry.sol:**
 
----
+| Function | Description |
+|----------|-------------|
+| `submitReview(category, projectId, contentHash)` | Submit a new review to the blockchain |
+| `verifyReview(reviewId)` | Check if a review exists |
+| `getReview(reviewId)` | Get review details |
+| `getReviewsByReviewer(address)` | Get all reviews by a specific reviewer |
+| `getTotalReviews()` | Get total number of reviews |
 
-## 🎯 For BNB Good Vibes Submission
-
-**Required Info:**
-- Contract Address: (will be saved in `deployment-info.json`)
-- Network: BSC Testnet (Chain ID: 97)
-- BscScan Link: https://testnet.bscscan.com/address/`<CONTRACT_ADDRESS>`
-- Deployment Tx: (from deployment output)
+**Events:**
+- `ReviewSubmitted(reviewId, reviewer, category, projectId, contentHash, timestamp)`
 
 ---
 
 ## 🆘 Troubleshooting
 
-**"No BNB" error?**
-- Check balance: `npx hardhat run scripts/check-balance.js --network bscTestnet`
-- Re-request from faucet (24h cooldown)
+**Need testnet BNB?**
+1. Visit: https://testnet.bnbchain.org/faucet-smart
+2. Enter your wallet address
+3. Request 0.5 tBNB
 
-**Deployment fails?**
-- Increase gas limit in `hardhat.config.js`
-- Try opBNB Testnet (much cheaper)
+**Can't interact with contract?**
+- Check `.env.local` has correct `NEXT_PUBLIC_REVIEW_REGISTRY_ADDRESS`
+- Verify you're on BSC Testnet (Chain ID: 97)
+- Ensure wallet has sufficient tBNB for gas
 
-**Can't verify?**
-- Wait 1-2 minutes after deployment
-- Check constructor args match deployment
-- Get BscScan API key: https://bscscan.com/myapikey
+**Verification Issues?**
+```bash
+npx hardhat verify --network bscTestnet 0x9453A6EA1BB1Acd31F2288971DBda8e4088EFF37
+```
 
 ---
 
-**Status:** ⏳ Waiting for testnet BNB
+## 📊 Gas Costs
+
+- Submit review: ~0.0001 BNB per transaction
+- Recommended balance: 0.1 tBNB for testing
+
+---
+
+## 🎯 Next Steps
+
+- [ ] Update UI to use deployed contract address
+- [ ] Test review submission from frontend
+- [ ] Configure category filters (AI Agents + DeFi)
+- [ ] Set up event listeners for ReviewSubmitted
+- [ ] Add transaction confirmation UI
+
+---
+
+**Last Updated:** 2026-02-16  
+**Maintained by:** Patrick (Bounty Hunter 🛡️)
