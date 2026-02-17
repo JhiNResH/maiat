@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { Search, SquarePen } from 'lucide-react'
 import { usePrivy } from '@privy-io/react-auth'
@@ -30,8 +31,15 @@ export function TopNav() {
         {/* Left: Logo */}
         <div className="flex items-center gap-10">
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-xl">
-              🪲
+            <div className="relative w-10 h-10 rounded-lg overflow-hidden">
+              <Image
+                src="/maiat.jpg"
+                alt="MAIAT"
+                width={40}
+                height={40}
+                className="object-cover"
+                priority
+              />
             </div>
             <span className="text-[22px] font-bold tracking-wide text-[#d9d4e8] font-['Cinzel_Decorative'] hidden sm:block">
               MAIAT
