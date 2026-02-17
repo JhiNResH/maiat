@@ -1,148 +1,218 @@
-import { prisma } from '@/lib/prisma'
-import { ProjectCard } from '@/components/ProjectCard'
-import { AddProjectButton } from '@/components/AddProjectButton'
-import Link from 'next/link'
-import { Trophy } from 'lucide-react'
+'use client'
 
-const categoryMeta: Record<string, { title: string; desc: string }> = {
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
+import Image from 'next/image'
+import { Plus, Search, Trophy } from 'lucide-react'
+
+interface Project {
+  id: string
+  name: string
+  description: string | null
+  image: string | null
+  category: string
+  status: 'approved' | 'pending' | 'rejected'
+  avgRating: number
+  reviewCount: number
+  website: string | null
+}
+
+const categoryMeta: Record<string, { title: string; desc: string; icon: string }> = {
   'ai-agents': {
-    title: '🤖 AI Agents',
+    title: 'AI Agents',
     desc: 'Autonomous agents ranked by reliability, safety, and performance.',
+    icon: '🤖',
   },
   'defi': {
-    title: '🏦 DeFi Protocols',
+    title: 'DeFi Protocols',
     desc: 'Trust scores for DeFi protocols based on verified on-chain usage.',
+    icon: '🏦',
   },
 }
 
-export default async function CategoryPage({
+export default function CategoryPage({
   params,
 }: {
-  params: Promise<{ category: string }>
+  params: { category: string }
 }) {
-  const { category: categorySlug } = await params
+  const categorySlug = params.category
   const cat = `m/${categorySlug}`
-  const meta = categoryMeta[categorySlug] || { title: categorySlug, desc: '' }
+  const meta = categoryMeta[categorySlug] || { title: categorySlug, desc: '', icon: '📦' }
 
-  const projects = await prisma.project.findMany({
-    where: { category: cat },
-    orderBy: [
-      { status: 'asc' }, // approved first, then pending, then rejected
-      { avgRating: 'desc' },
-    ],
-  })
+  const [projects, setProjects] = useState<Project[]>([])
+  const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
 
-  const approved = projects.filter((p) => p.status === 'approved')
-  const pending = projects.filter((p) => p.status === 'pending')
-  const flagged = projects.filter((p) => p.status === 'rejected')
+  useEffect(() => {
+    async function fetchProjects() {
+      try {
+        const res = await fetch(`/api/projects?category=${cat}`)
+        const data = await res.json()
+        setProjects(data.projects || [])
+      } catch (error) {
+        console.error('Failed to fetch projects:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchProjects()
+  }, [cat])
+
+  const filteredProjects = projects.filter(p =>
+    p.name.toLowerCase().includes(searchQuery.toLowerCase())
+  )
+
+  const approved = filteredProjects.filter(p => p.status === 'approved')
+  const pending = filteredProjects.filter(p => p.status === 'pending')
+  const flagged = filteredProjects.filter(p => p.status === 'rejected')
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-white">
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-3xl font-bold">{meta.title}</h1>
+    <main className="min-h-screen bg-[#0a0a0b] text-white">
+      {/* Header */}
+      <div className="border-b border-[#1f1f23] sticky top-[65px] z-40 bg-[#0a0a0b]/95 backdrop-blur">
+        <div className="max-w-6xl mx-auto px-6 py-6">
+          <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
-              <AddProjectButton category={cat} />
+              <span className="text-3xl">{meta.icon}</span>
+              <div>
+                <h1 className="text-3xl font-bold">{meta.title}</h1>
+                <p className="text-[#adadb0] text-sm mt-1">
+                  {projects.length} projects • {approved.length} verified
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
               <Link
                 href={`/m/${categorySlug}/leaderboard`}
-                className="flex items-center gap-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 px-4 py-2 rounded-lg transition-colors border border-amber-500/30"
+                className="flex items-center gap-2 px-4 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 rounded-lg font-medium transition border border-amber-500/30"
               >
-                <Trophy className="w-5 h-5" />
-                <span className="font-semibold">Leaderboard</span>
+                <Trophy className="w-4 h-4" />
+                Leaderboard
               </Link>
+              <button
+                onClick={() => window.location.href = `/m/${categorySlug}?mode=create`}
+                className="flex items-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 rounded-lg font-medium transition"
+              >
+                <Plus className="w-4 h-4" />
+                New Project
+              </button>
             </div>
           </div>
-          <p className="text-zinc-400">{meta.desc}</p>
-          <div className="flex gap-4 mt-4 text-sm text-zinc-500">
+
+          {/* Description */}
+          <p className="text-[#adadb0] mb-4">{meta.desc}</p>
+
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-3 w-4 h-4 text-[#6b6b70]" />
+            <input
+              type="text"
+              placeholder="Search projects..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 bg-[#1f1f23] border border-[#2a2a2e] rounded-lg text-white placeholder-[#6b6b70] focus:outline-none focus:border-purple-500"
+            />
+          </div>
+
+          {/* Stats */}
+          <div className="flex gap-4 mt-4 text-sm">
             <span className="text-emerald-400">🟢 {approved.length} verified</span>
-            <span className="text-amber-400">🟡 {pending.length} unreviewed</span>
+            <span className="text-amber-400">🟡 {pending.length} pending</span>
             <span className="text-red-400">🔴 {flagged.length} flagged</span>
           </div>
         </div>
+      </div>
 
-        {/* Verified Safe */}
-        {approved.length > 0 && (
-          <section className="mb-8">
-            <h2 className="text-lg font-semibold text-emerald-400 mb-3">✅ Verified Safe</h2>
-            <div className="grid gap-3">
-              {approved.map((p) => (
-                <ProjectCard
-                  key={p.id}
-                  id={p.id}
-                  name={p.name}
-                  description={p.description || ''}
-                  image={p.image}
-                  status="approved"
-                  avgRating={p.avgRating}
-                  reviewCount={p.reviewCount}
-                  website={p.website}
-                  category={p.category}
-                />
-              ))}
-            </div>
-          </section>
-        )}
+      {/* Projects Grid */}
+      <div className="max-w-6xl mx-auto px-6 py-8">
+        {loading ? (
+          <div className="text-center py-12 text-[#adadb0]">
+            Loading projects...
+          </div>
+        ) : filteredProjects.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-[#adadb0] mb-4">No projects found</p>
+            <button
+              onClick={() => window.location.href = `/m/${categorySlug}?mode=create`}
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-purple-600 hover:bg-purple-700 rounded-lg font-medium transition"
+            >
+              <Plus className="w-4 h-4" />
+              Create First Project
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredProjects.map((project) => (
+              <Link
+                key={project.id}
+                href={`/m/${categorySlug}/${project.id}`}
+                className="group"
+              >
+                <div className="bg-[#1f1f23] border border-[#2a2a2e] rounded-lg p-4 hover:border-purple-500/50 hover:bg-[#2a2a2e] transition cursor-pointer">
+                  {/* Logo + Name */}
+                  <div className="flex items-start gap-3 mb-4">
+                    {project.image ? (
+                      <Image
+                        src={project.image}
+                        alt={project.name}
+                        width={48}
+                        height={48}
+                        className="w-12 h-12 rounded-lg object-cover"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-lg bg-purple-500/20 flex items-center justify-center text-xl">
+                        {meta.icon}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold truncate group-hover:text-purple-400 transition">
+                        {project.name}
+                      </h3>
+                      <p className="text-xs text-[#6b6b70] capitalize">
+                        {project.status}
+                      </p>
+                    </div>
+                  </div>
 
-        {/* Unreviewed */}
-        {pending.length > 0 && (
-          <section className="mb-8">
-            <h2 className="text-lg font-semibold text-amber-400 mb-3">
-              ⏳ Unreviewed — Need Your Input
-            </h2>
-            <div className="grid gap-3">
-              {pending.map((p) => (
-                <ProjectCard
-                  key={p.id}
-                  id={p.id}
-                  name={p.name}
-                  description={p.description || ''}
-                  image={p.image}
-                  status="pending"
-                  avgRating={p.avgRating}
-                  reviewCount={p.reviewCount}
-                  website={p.website}
-                  category={p.category}
-                />
-              ))}
-            </div>
-          </section>
-        )}
+                  {/* Description */}
+                  {project.description && (
+                    <p className="text-sm text-[#adadb0] line-clamp-2 mb-4">
+                      {project.description}
+                    </p>
+                  )}
 
-        {/* Flagged */}
-        {flagged.length > 0 && (
-          <section className="mb-8">
-            <h2 className="text-lg font-semibold text-red-400 mb-3">
-              ⚠️ Flagged — Community Warnings
-            </h2>
-            <p className="text-xs text-red-400/60 mb-3">
-              These projects have been flagged by the community for suspicious behavior including data
-              exfiltration, credential theft, or prompt injection.
-            </p>
-            <div className="grid gap-3">
-              {flagged.map((p) => (
-                <ProjectCard
-                  key={p.id}
-                  id={p.id}
-                  name={p.name}
-                  description={p.description || ''}
-                  image={p.image}
-                  status="rejected"
-                  avgRating={p.avgRating}
-                  reviewCount={p.reviewCount}
-                  website={p.website}
-                  category={p.category}
-                />
-              ))}
-            </div>
-          </section>
-        )}
+                  {/* Stats */}
+                  <div className="space-y-2 text-sm">
+                    {/* Rating */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-[#adadb0]">Rating</span>
+                      <span className="font-semibold text-purple-400">
+                        {project.avgRating > 0 ? `${project.avgRating.toFixed(1)} / 5` : 'No ratings'}
+                      </span>
+                    </div>
 
-        {projects.length === 0 && (
-          <div className="border border-zinc-800 rounded-xl p-12 text-center">
-            <p className="text-zinc-500 text-lg">No items in this category yet.</p>
-            <p className="text-zinc-600 text-sm mt-2">Be the first to review something here.</p>
+                    {/* Reviews */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-[#adadb0]">Reviews</span>
+                      <span className="font-semibold">{project.reviewCount}</span>
+                    </div>
+
+                    {/* Status Badge */}
+                    <div className="pt-2 border-t border-[#2a2a2e]">
+                      {project.status === 'approved' && (
+                        <span className="text-xs text-emerald-400">✅ Verified Safe</span>
+                      )}
+                      {project.status === 'pending' && (
+                        <span className="text-xs text-amber-400">⏳ Pending Review</span>
+                      )}
+                      {project.status === 'rejected' && (
+                        <span className="text-xs text-red-400">⚠️ Flagged</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            ))}
           </div>
         )}
       </div>
