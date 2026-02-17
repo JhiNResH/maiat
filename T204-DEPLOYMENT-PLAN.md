@@ -1,9 +1,20 @@
-# 📋 T204: BSC Contract Deployment - READY TO DEPLOY
+# 📋 T204: BSC Contract Deployment - ✅ DEPLOYED
 
-**Status:** ⏳ Waiting for testnet BNB  
+**Status:** ✅ Complete  
 **Owner:** Patrick  
-**Deadline:** Feb 17-18  
-**Progress:** 90% (Code ready, awaiting funding)
+**Deployed:** Feb 2026  
+**Progress:** 100%
+
+---
+
+## ✅ Deployment Summary
+
+**Contract Address:** `0x9453A6EA1BB1Acd31F2288971DBda8e4088EFF37`  
+**Deployer Address:** `0x872989F7fCd4048acA370161989d3904E37A3cB3`  
+**Network:** BSC Testnet (Chain ID: 97)  
+**Contract:** ReviewRegistry  
+**BscScan:** https://testnet.bscscan.com/address/0x9453A6EA1BB1Acd31F2288971DBda8e4088EFF37  
+**Repository:** https://github.com/JhiNResH/maiat
 
 ---
 
@@ -19,10 +30,8 @@
      - Event emission for indexing
 
 2. **Hardhat Setup** ✅
-   - Dependencies installed (351 packages)
-   - `hardhat.config.js` configured for:
-     - BSC Testnet (Chain ID: 97)
-     - opBNB Testnet (Chain ID: 5611)
+   - Dependencies installed
+   - `hardhat.config.js` configured for BSC Testnet (Chain ID: 97)
    - Optimizer enabled (200 runs)
 
 3. **Deployment Scripts** ✅
@@ -30,81 +39,22 @@
    - `scripts/check-balance.js` - Check wallet balance
    - `scripts/test-review-submission.js` - Test deployed contract
 
-4. **Test Wallet Generated** ✅
-   - Address: `0x9028aBD05cA6ec95Bbe0F51a677b9e8E613D3755`
-   - Private key saved in `.env`
-   - **⚠️ NEEDS FUNDING** (0.1 tBNB required)
+4. **Test Wallet Funded** ✅
+   - Deployer: `0x872989F7fCd4048acA370161989d3904E37A3cB3`
+   - Funded with testnet BNB
 
-5. **Documentation** ✅
-   - `DEPLOYMENT.md` - Complete deployment guide
+5. **Contract Deployed** ✅
+   - Deployed to: `0x9453A6EA1BB1Acd31F2288971DBda8e4088EFF37`
+   - Network: BSC Testnet
+   - Transaction confirmed
+
+6. **Documentation** ✅
+   - `DEPLOYMENT.md` - Updated with deployment info
    - `T204-DEPLOYMENT-PLAN.md` - This file
 
 ---
 
-## 🚀 Next Steps
-
-### Step 1: Fund Wallet (5 min)
-
-**Option A: BSC Testnet (Recommended)**
-1. Visit: https://testnet.bnbchain.org/faucet-smart
-2. Enter address: `0x9028aBD05cA6ec95Bbe0F51a677b9e8E613D3755`
-3. Request **0.5 tBNB**
-4. Wait ~30 seconds
-
-**Option B: opBNB Testnet (Cheaper gas)**
-- Requires BSC Testnet BNB first, then bridge
-- Bridge: https://opbnb-testnet-bridge.bnbchain.org/deposit
-
-### Step 2: Verify Balance (30 sec)
-
-```bash
-cd /Users/jhinresh/clawd/projects/maatV2
-npx hardhat run scripts/check-balance.js --network bscTestnet
-```
-
-Expected output:
-```
-💰 Checking balance on bscTestnet
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📍 Address: 0x9028aBD05cA6ec95Bbe0F51a677b9e8E613D3755
-💵 Balance: 0.5 BNB
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-✅ Balance OK! Ready to deploy
-```
-
-### Step 3: Deploy Contract (2 min)
-
-```bash
-npx hardhat run scripts/deploy-review-registry.js --network bscTestnet
-```
-
-Expected output:
-```
-🚀 Deploying ReviewRegistry to bscTestnet
-📍 Deployer address: 0x9028aBD05cA6ec95Bbe0F51a677b9e8E613D3755
-💰 Balance: 0.5 BNB
-
-📦 Deploying ReviewRegistry...
-✅ ReviewRegistry deployed to: 0x...
-```
-
-**Result:** `deployment-info.json` created with contract address
-
-### Step 4: Verify Contract (2 min)
-
-```bash
-npx hardhat verify --network bscTestnet <CONTRACT_ADDRESS>
-```
-
-### Step 5: Test Submission (1 min)
-
-```bash
-npx hardhat run scripts/test-review-submission.js --network bscTestnet
-```
-
----
-
-## 📊 Contract Details
+## 📦 Contract Details
 
 **ReviewRegistry.sol:**
 - **Purpose:** On-chain proof of Maat reviews
@@ -118,57 +68,37 @@ npx hardhat run scripts/test-review-submission.js --network bscTestnet
 **Events:**
 - `ReviewSubmitted(reviewId, reviewer, category, projectId, contentHash, timestamp)`
 
-**Gas Costs (Estimated):**
-- Deploy: ~0.01 BNB
-- Submit review: ~0.0001 BNB per tx
-- Total needed: 0.1 BNB (for deployment + 50+ test submissions)
+---
+
+## 🎯 Current Configuration
+
+**.env.local:**
+```env
+NEXT_PUBLIC_REVIEW_REGISTRY_ADDRESS=0x9453A6EA1BB1Acd31F2288971DBda8e4088EFF37
+NEXT_PUBLIC_CHAIN_ID=97
+```
+
+**Privy:** Configured ✅  
+**App ID:** (stored in `.env.local`)
+
+**Categories:**
+- AI Agents
+- DeFi
 
 ---
 
-## 🎯 BNB Good Vibes Submission Requirements
+## 🧪 Testing
 
-**What we need:**
-- ✅ Contract deployed to BSC Testnet or opBNB
-- ✅ Contract verified on BscScan
-- ✅ Transaction proof (deployment tx + test submission)
-- ✅ GitHub repo link (github.com/JhiNResH/maatV2)
-- ✅ Demo screenshots/video
+### Contract Interaction
 
-**What we have ready:**
-- Contract code ✅
-- Deployment scripts ✅
-- Test wallet ✅
-- Documentation ✅
-
-**What we're waiting for:**
-- ⏳ Testnet BNB (0.1+ tBNB)
-
----
-
-## 🔧 Troubleshooting
-
-### "Insufficient funds" error
 ```bash
-# Check balance
-npx hardhat run scripts/check-balance.js --network bscTestnet
-
-# If 0 BNB, re-request from faucet
-# BSC Testnet: https://testnet.bnbchain.org/faucet-smart
+# Test review submission
+npx hardhat run scripts/test-review-submission.js --network bscTestnet
 ```
 
-### "Transaction underpriced" error
-```javascript
-// Edit hardhat.config.js, increase gasPrice:
-gasPrice: 20000000000, // 20 gwei (was 10)
-```
+### BscScan Verification
 
-### Verification fails
-```bash
-# Wait 1-2 minutes after deployment, then retry
-npx hardhat verify --network bscTestnet <ADDRESS>
-
-# If still fails, check constructor args match
-```
+Visit: https://testnet.bscscan.com/address/0x9453A6EA1BB1Acd31F2288971DBda8e4088EFF37
 
 ---
 
@@ -180,32 +110,12 @@ npx hardhat verify --network bscTestnet <ADDRESS>
 | Setup Hardhat | 15 min | ✅ Done |
 | Write scripts | 20 min | ✅ Done |
 | Generate wallet | 2 min | ✅ Done |
-| **Get testnet BNB** | **5 min** | **⏳ In Progress** |
-| Deploy contract | 2 min | ⏳ Queued |
-| Verify contract | 2 min | ⏳ Queued |
-| Test submission | 1 min | ⏳ Queued |
-| **Total** | **~80 min** | **90% Complete** |
-
----
-
-## 📍 Current Status
-
-**✅ Code Complete (90%)**
-- All scripts written and tested
-- Contract ready for deployment
-- Documentation complete
-- Test wallet generated
-
-**⏳ Awaiting Funding (10%)**
-- Need 0.1+ tBNB to deploy
-- Faucet link: https://testnet.bnbchain.org/faucet-smart
-- Address: `0x9028aBD05cA6ec95Bbe0F51a677b9e8E613D3755`
-
-**🎯 ETA: 15 minutes after funding**
-- Deploy: 2 min
-- Verify: 2 min
-- Test: 1 min
-- Document: 10 min
+| Get testnet BNB | 5 min | ✅ Done |
+| Deploy contract | 2 min | ✅ Done |
+| Verify contract | 2 min | ✅ Done |
+| Test submission | 1 min | ✅ Done |
+| Update documentation | 10 min | ✅ Done |
+| **Total** | **~90 min** | **✅ 100% Complete** |
 
 ---
 
@@ -215,16 +125,29 @@ npx hardhat verify --network bscTestnet <ADDRESS>
 - [x] Hardhat configured
 - [x] Deployment scripts ready
 - [x] Test wallet generated
-- [ ] Wallet funded (⏳ In Progress)
-- [ ] Contract deployed to BSC Testnet
-- [ ] Contract verified on BscScan
-- [ ] Test transaction submitted
-- [ ] Contract address added to `.env.local`
-- [ ] `deployment-info.json` saved
-- [ ] T204 marked as complete
+- [x] Wallet funded
+- [x] Contract deployed to BSC Testnet
+- [x] Contract verified on BscScan
+- [x] Test transaction submitted
+- [x] Contract address added to `.env.local`
+- [x] Documentation updated
+- [x] T204 marked as complete
 
 ---
 
-**Next Action:** Fund wallet with 0.1+ tBNB from faucet, then run deployment script.
+## 📊 Next Steps (UI Integration)
 
-**Patrick Status:** ⏳ WAITING FOR TESTNET BNB
+- [ ] Update frontend to use deployed contract (`0x9453A6EA1BB1Acd31F2288971DBda8e4088EFF37`)
+- [ ] Test review submission from UI
+- [ ] Configure category filters (AI Agents + DeFi)
+- [ ] Set up event listeners for `ReviewSubmitted`
+- [ ] Add transaction confirmation UI
+- [ ] Add BscScan transaction links
+
+**Note:** UI integration is handled by Steve. Contract deployment (T204) is complete.
+
+---
+
+**Last Updated:** 2026-02-16  
+**Maintained by:** Patrick (Bounty Hunter 🛡️)  
+**Status:** ✅ DEPLOYED AND READY FOR UI INTEGRATION
