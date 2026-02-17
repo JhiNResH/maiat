@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { VerificationButton } from './VerificationButton'
 
 interface Review {
   id: string
@@ -32,6 +33,9 @@ interface ReviewCardProps {
 interface VerificationBadges {
   baseVerified: boolean
   hasInteracted: boolean
+  aiVerified: boolean
+  aiScore?: number
+  aiVerdict?: 'authentic' | 'suspicious' | 'spam'
 }
 
 const CATEGORY_ICONS: Record<string, string> = {
@@ -45,6 +49,7 @@ export function ReviewCard({ review }: ReviewCardProps) {
   const [badges, setBadges] = useState<VerificationBadges>({
     baseVerified: false,
     hasInteracted: false,
+    aiVerified: false,
   })
   const [loading, setLoading] = useState(true)
 
@@ -67,7 +72,7 @@ export function ReviewCard({ review }: ReviewCardProps) {
           }
         }
 
-        setBadges({ baseVerified, hasInteracted })
+        setBadges({ baseVerified, hasInteracted, aiVerified: false })
       } catch (error) {
         console.error('Failed to check badges:', error)
       } finally {
@@ -108,6 +113,14 @@ export function ReviewCard({ review }: ReviewCardProps) {
                       title="Verified User (Used this protocol)"
                     >
                       ✓ User
+                    </span>
+                  )}
+                  {badges.aiVerified && badges.aiVerdict === 'authentic' && (
+                    <span 
+                      className="px-2 py-0.5 text-xs rounded-full bg-purple-500/20 text-purple-400 border border-purple-500/30"
+                      title={`0G AI Verified (${badges.aiScore}/100)`}
+                    >
+                      🤖 AI Verified
                     </span>
                   )}
                 </>
@@ -157,6 +170,27 @@ export function ReviewCard({ review }: ReviewCardProps) {
           </button>
         </div>
       </div>
+
+      {/* AI Verification Section */}
+      {!badges.aiVerified && (
+        <div className="mt-3 pt-3 border-t border-[#1f1f23]">
+          <VerificationButton
+            reviewId={review.id}
+            title={review.project.name}
+            content={review.content}
+            rating={review.rating}
+            category={review.project.category}
+            onVerificationComplete={(result) => {
+              setBadges(prev => ({
+                ...prev,
+                aiVerified: true,
+                aiScore: result.score,
+                aiVerdict: result.verdict,
+              }))
+            }}
+          />
+        </div>
+      )}
     </div>
   )
 }
