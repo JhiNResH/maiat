@@ -61,9 +61,12 @@ export function TopNav() {
           {/* Auth Button */}
           {authenticated ? (
             <div className="flex items-center gap-2">
-              <div className="hidden sm:block px-3 py-2 bg-[#111113] border border-[#1f1f23] rounded-lg text-sm text-[#adadb0]">
+              <Link
+                href={`/users/${user?.wallet?.address}`}
+                className="hidden sm:block px-3 py-2 bg-[#111113] border border-[#1f1f23] rounded-lg text-sm text-[#adadb0] hover:text-white hover:border-purple-500/50 transition-colors"
+              >
                 {user?.wallet?.address?.slice(0, 6)}...{user?.wallet?.address?.slice(-4)}
-              </div>
+              </Link>
               <button
                 onClick={logout}
                 className="px-3 py-2 text-sm text-[#6b6b70] hover:text-white transition-colors"

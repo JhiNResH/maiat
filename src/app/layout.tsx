@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { PrivyProvider } from '@/components/PrivyProvider'
-import { ScarabWidget } from '@/components/ScarabWidget'
 import { TopNav } from '@/components/TopNav'
 import { ClientLayout } from '@/components/ClientLayout'
 
@@ -30,7 +29,6 @@ export default function RootLayout({
             <ClientLayout>
               {children}
             </ClientLayout>
-            <ScarabWidget />
           </div>
         </PrivyProvider>
       </body>
