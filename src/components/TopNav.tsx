@@ -33,7 +33,7 @@ export function TopNav() {
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center text-xl">
               🪲
             </div>
-            <span className="text-[22px] font-bold tracking-wide text-[#d9d4e8] hidden sm:block">
+            <span className="text-[22px] font-bold tracking-wide text-[#d9d4e8] font-['Cinzel_Decorative'] hidden sm:block">
               MAIAT
               <span className="ml-1 inline-block w-1.5 h-1.5 rounded-full bg-purple-500 mb-1"></span>
             </span>
