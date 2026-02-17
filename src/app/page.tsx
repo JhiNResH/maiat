@@ -103,7 +103,7 @@ export default async function Home() {
                  <Link href="#" className="hover:underline">Security</Link>
                </div>
                <div className="mt-4">
-                 © 2026 Maat 🪶 — The Feather of Truth for Web3
+                 © 2026 Maiat 🪲 — Trust Layer for Agentic Commerce
                </div>
             </div>
           </aside>

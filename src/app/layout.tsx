@@ -8,7 +8,7 @@ import { ClientLayout } from '@/components/ClientLayout'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Maat - Trust Layer for Agentic Commerce',
+  title: 'Maiat - Trust Layer for Agentic Commerce',
   description: 'Review and rate AI agents and DeFi protocols with on-chain verification',
   other: {
     'base:app_id': '698f75b47ca07f5750bbd889',

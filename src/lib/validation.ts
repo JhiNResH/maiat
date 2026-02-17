@@ -35,7 +35,7 @@ export function getReviewSignatureMessage(params: {
   content: string
   timestamp: number
 }): string {
-  return `Sign this message to submit a review on Maat:
+  return `Sign this message to submit a review on Maiat:
 
 Project: ${params.projectId}
 Rating: ${params.rating}/5

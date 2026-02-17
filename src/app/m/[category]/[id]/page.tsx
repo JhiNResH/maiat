@@ -226,7 +226,7 @@ export default async function ProjectDetailPage({
               <div className="mt-6 bg-zinc-900/50 border border-zinc-800 rounded-xl p-5">
                 <div className="flex items-center gap-2 mb-3">
                   <Shield className="w-5 h-5 text-purple-400" />
-                  <h3 className="font-semibold text-sm">About Maat Trust</h3>
+                  <h3 className="font-semibold text-sm">About Maiat Trust</h3>
                 </div>
                 <ul className="space-y-2 text-xs text-zinc-500">
                   <li>🪲 Reviews cost 2 Scarab — skin in the game</li>
