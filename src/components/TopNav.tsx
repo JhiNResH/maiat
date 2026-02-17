@@ -23,17 +23,8 @@ export function TopNav() {
 
           {/* Nav Links */}
           <div className="hidden md:flex items-center gap-6 text-sm">
-            <Link
-              href="/m/openclaw-skills"
-              className="text-zinc-400 hover:text-white transition-colors"
-            >
-              🧩 Skills
-            </Link>
             <Link href="/m/ai-agents" className="text-zinc-400 hover:text-white transition-colors">
-              🤖 Agents
-            </Link>
-            <Link href="/m/memecoin" className="text-zinc-400 hover:text-white transition-colors">
-              🐸 Memecoins
+              🤖 AI Agents
             </Link>
             <Link href="/m/defi" className="text-zinc-400 hover:text-white transition-colors">
               🏦 DeFi

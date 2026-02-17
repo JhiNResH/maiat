@@ -1,0 +1,97 @@
+'use client'
+
+import Link from 'next/link'
+
+interface Review {
+  id: string
+  rating: number
+  content: string
+  upvotes: number
+  downvotes: number
+  createdAt: string
+  reviewer: {
+    id: string
+    address: string
+    displayName: string | null
+    avatarUrl: string | null
+  }
+  project: {
+    id: string
+    name: string
+    image: string | null
+    category: string
+  }
+}
+
+interface ReviewCardProps {
+  review: Review
+}
+
+const CATEGORY_ICONS: Record<string, string> = {
+  'm/ai-agents': '🤖',
+  'm/defi': '🏦',
+}
+
+export function ReviewCard({ review }: ReviewCardProps) {
+  const truncateAddress = (addr: string) => addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : 'Anon'
+  const categorySlug = review.project.category.replace('m/', '')
+
+  return (
+    <div className="bg-[#111113] border border-[#1f1f23] rounded-lg p-4 hover:border-purple-500/30 transition-all">
+      {/* Header */}
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-purple-700 rounded-full flex items-center justify-center text-xs text-white font-bold">
+            {review.reviewer.displayName?.slice(0, 2).toUpperCase() || review.reviewer.address.slice(0, 2).toUpperCase()}
+          </div>
+          <div>
+            <div className="font-medium text-sm text-[#d9d4e8]">
+              {review.reviewer.displayName || truncateAddress(review.reviewer.address)}
+            </div>
+            <div className="text-xs text-[#6b6b70]">
+              {new Date(review.createdAt).toLocaleDateString()}
+            </div>
+          </div>
+        </div>
+        <div className="flex items-center gap-1 text-amber-400">
+          {[...Array(5)].map((_, i) => (
+            <span key={i} className={i < review.rating ? 'text-amber-400' : 'text-[#1f1f23]'}>
+              ★
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Target Project */}
+      <Link 
+        href={`/m/${categorySlug}/${review.project.id}`}
+        className="flex items-center gap-2 mb-3 hover:text-purple-400 transition-colors"
+      >
+        <span className="text-lg">{CATEGORY_ICONS[review.project.category] || '📄'}</span>
+        <span className="text-sm text-[#6b6b70]">Reviewing:</span>
+        <span className="text-sm font-medium text-purple-300">{review.project.name}</span>
+      </Link>
+
+      {/* Content */}
+      <p className="text-[#d9d4e8]/80 mb-4 leading-relaxed text-sm">{review.content}</p>
+
+      {/* Footer / Vote Bar */}
+      <div className="flex items-center justify-between pt-3 border-t border-[#1f1f23]">
+        <div className="flex items-center gap-4">
+          {/* Simple Vote Display (TODO: make interactive) */}
+          <div className="flex items-center gap-1.5 text-[#6b6b70]">
+            <span className={review.upvotes - review.downvotes > 0 ? 'text-green-400' : ''}>▲</span>
+            <span className="text-sm font-bold">
+              {review.upvotes - review.downvotes}
+            </span>
+            <span>▼</span>
+          </div>
+          <button className="flex items-center gap-1 text-[#6b6b70] hover:text-blue-400 transition text-sm">
+            <span>💬</span>
+            <span>0</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
