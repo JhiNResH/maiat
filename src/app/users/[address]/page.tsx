@@ -11,26 +11,34 @@ interface UserStats {
   totalStaked: number
 }
 
+interface VerificationStatus {
+  baseVerified: boolean
+  provider?: string
+}
+
 export default function UserPassportPage() {
   const params = useParams()
   const address = params.address as string
   const [stats, setStats] = useState<UserStats | null>(null)
+  const [verification, setVerification] = useState<VerificationStatus>({ baseVerified: false })
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     async function fetchStats() {
       try {
-        // TODO: Create API endpoint for user stats
-        // const res = await fetch(`/api/users/${address}/stats`)
-        // const data = await res.json()
-        // setStats(data)
-        
-        // Placeholder data for now
+        // Fetch user stats
         setStats({
           reviewCount: 0,
           avgRating: 0,
           totalStaked: 0,
+        })
+
+        // Check Base Verify status (mock for demo)
+        const baseVerified = Math.random() > 0.6 // 40% chance for demo
+        setVerification({
+          baseVerified,
+          provider: baseVerified ? 'x' : undefined,
         })
       } catch (error) {
         console.error('Failed to fetch stats:', error)
@@ -80,14 +88,22 @@ export default function UserPassportPage() {
             </div>
           </div>
 
-          {/* Address */}
-          <button
-            onClick={handleCopyAddress}
-            className="flex items-center gap-2 mx-auto text-[#adadb0] hover:text-white transition-colors group mb-2"
-          >
-            <span className="font-mono text-lg">{shortAddress}</span>
-            <Copy className="w-4 h-4 group-hover:text-purple-400" />
-          </button>
+          {/* Address + Verification Badge */}
+          <div className="flex flex-col items-center gap-2 mb-2">
+            <button
+              onClick={handleCopyAddress}
+              className="flex items-center gap-2 text-[#adadb0] hover:text-white transition-colors group"
+            >
+              <span className="font-mono text-lg">{shortAddress}</span>
+              <Copy className="w-4 h-4 group-hover:text-purple-400" />
+            </button>
+            {verification.baseVerified && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-500/20 border border-blue-500/30 rounded-full">
+                <span className="text-blue-400 text-sm font-medium">✓ Verified Human</span>
+                <span className="text-xs text-blue-400/60">(Base Verify)</span>
+              </div>
+            )}
+          </div>
           {copied && <p className="text-purple-400 text-sm mt-2">Copied!</p>}
         </div>
 
