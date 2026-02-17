@@ -11,9 +11,7 @@ interface AddProjectFormProps {
 }
 
 const CATEGORIES = [
-  { value: 'm/openclaw-skills', label: '🧩 OpenClaw Skills' },
   { value: 'm/ai-agents', label: '🤖 AI Agents' },
-  { value: 'm/memecoin', label: '🐸 Memecoins' },
   { value: 'm/defi', label: '🏦 DeFi Protocols' },
 ]
 

@@ -1,268 +1,108 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { checkReviewQuality } from '@/lib/gemini-review-check'
-import { spendScarab } from '@/lib/scarab'
-import { hashReviewContent, submitReviewOnChain, isOnChainEnabled, getExplorerUrl } from '@/lib/onchain'
-import { reviewSubmitLimiter, checkRateLimit } from '@/lib/ratelimit'
-import { reviewSubmitSchema, getReviewSignatureMessage } from '@/lib/validation'
-import { verifyWalletSignature, isTimestampValid } from '@/lib/signature'
-import type { Hex } from 'viem'
 
-export const dynamic = 'force-dynamic'
-
-// GET /api/reviews
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const category = searchParams.get('category')
-  const projectId = searchParams.get('projectId')
-  const sort = searchParams.get('sort') || 'new' // hot, new, top
+  const searchParams = request.nextUrl.searchParams
+  const sort = searchParams.get('sort') || 'hot'
+  const limit = parseInt(searchParams.get('limit') || '20')
 
   try {
-    const where: any = {}
+    let reviews
 
-    if (category) {
-      where.project = { category }
-    }
-    if (projectId) {
-      where.projectId = projectId
-    }
-
-    let reviews = await prisma.review.findMany({
-      where,
-      include: {
-        reviewer: { select: { address: true, displayName: true, avatarUrl: true } },
-        project: { select: { id: true, name: true, category: true, image: true } },
-      },
-      orderBy:
-        sort === 'new'
-          ? { createdAt: 'desc' }
-          : sort === 'top'
-          ? [{ upvotes: 'desc' }, { downvotes: 'asc' }]
-          : { createdAt: 'desc' },
-    })
-
-    const transformed = reviews.map((r) => ({
-      id: r.id,
-      projectId: r.project.id,
-      projectName: r.project.name,
-      projectImage: r.project.image,
-      reviewerAddress: r.reviewer.address,
-      reviewerName: r.reviewer.displayName,
-      reviewerAvatar: r.reviewer.avatarUrl,
-      rating: r.rating,
-      content: r.content,
-      category: r.project.category,
-      upvotes: r.upvotes,
-      downvotes: r.downvotes,
-      createdAt: r.createdAt.toISOString(),
-    }))
-
-    return NextResponse.json({
-      reviews: transformed,
-      total: transformed.length,
-    })
-  } catch (error) {
-    console.error('Error fetching reviews:', error)
-    return NextResponse.json({ error: 'Failed to fetch reviews' }, { status: 500 })
-  }
-}
-
-// POST /api/reviews
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json()
-    
-    // **SECURITY FIX #5: Input Validation**
-    const validationResult = reviewSubmitSchema.safeParse(body)
-    if (!validationResult.success) {
-      return NextResponse.json(
-        { 
-          error: 'Invalid input', 
-          details: validationResult.error.issues 
-        }, 
-        { status: 400 }
-      )
-    }
-
-    const { address, projectId, rating, content, signature } = validationResult.data
-    const reviewContent = content?.trim() || ''
-    const timestamp = body.timestamp as number | undefined
-
-    // **SECURITY FIX #1: Wallet Signature Verification (CRITICAL)**
-    if (!timestamp || !isTimestampValid(timestamp)) {
-      return NextResponse.json(
-        { error: 'Invalid or expired timestamp (must be within ±5 minutes)' },
-        { status: 400 }
-      )
-    }
-
-    const signatureMessage = getReviewSignatureMessage({
-      address,
-      projectId,
-      rating,
-      content: reviewContent,
-      timestamp,
-    })
-
-    const isValidSignature = await verifyWalletSignature(
-      signatureMessage,
-      signature as Hex,
-      address as Hex
-    )
-
-    if (!isValidSignature) {
-      return NextResponse.json(
-        { error: 'Invalid signature - wallet verification failed' },
-        { status: 403 }
-      )
-    }
-
-    // **SECURITY FIX #2: Rate Limiting (CRITICAL)**
-    const rateLimitResult = await checkRateLimit(reviewSubmitLimiter, address)
-    if (!rateLimitResult.success) {
-      return NextResponse.json(
-        {
-          error: 'Rate limit exceeded',
-          limit: rateLimitResult.limit,
-          remaining: rateLimitResult.remaining,
-          resetAt: rateLimitResult.reset.toISOString(),
-        },
-        { 
-          status: 429,
-          headers: {
-            'X-RateLimit-Limit': rateLimitResult.limit.toString(),
-            'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
-            'X-RateLimit-Reset': rateLimitResult.reset.getTime().toString(),
-          }
-        }
-      )
-    }
-
-    // Spend Scarab (-2 for review)
-    try {
-      await spendScarab(address, 'review_spend', projectId)
-    } catch (e: any) {
-      return NextResponse.json({ error: e.message }, { status: 400 })
-    }
-
-    // Find or create user
-    let user = await prisma.user.findUnique({
-      where: { address: address.toLowerCase() },
-    })
-    if (!user) {
-      user = await prisma.user.create({
-        data: {
-          address: address.toLowerCase(),
-          displayName: address.substring(0, 10),
-        },
-      })
-    }
-
-    // Get project for quality check
-    const project = await prisma.project.findUnique({
-      where: { id: projectId },
-    })
-
-    if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
-    }
-
-    // Quality check with Gemini API (only if content provided)
-    let qualityCheck: {
-      status: 'approved' | 'flagged' | 'rejected'
-      score: number
-      reason: string
-      qualityIssues: string[]
-    } = { status: 'approved', score: 100, reason: '', qualityIssues: [] }
-    if (content && content.trim().length > 0) {
-      qualityCheck = await checkReviewQuality(content, project.name, project.category)
-
-      if (qualityCheck.status === 'rejected') {
-        return NextResponse.json(
-          {
-            error: 'Review rejected - quality check failed',
-            details: qualityCheck.reason,
-            qualityIssues: qualityCheck.qualityIssues,
-          },
-          { status: 400 }
-        )
-      }
-    }
-
-    // Hash review content for on-chain proof
-    const contentHash = hashReviewContent(reviewContent, rating, user.id)
-
-    // Create review
-    const review = await prisma.review.create({
-      data: {
-        reviewerId: user.id,
-        projectId: project.id,
-        rating,
-        content: reviewContent,
-        contentHash,
-        status: qualityCheck.status === 'flagged' ? 'flagged' : 'active',
-      },
-      include: {
-        reviewer: { select: { address: true, displayName: true, avatarUrl: true } },
-        project: { select: { id: true, name: true, category: true, image: true } },
-      },
-    })
-
-    // Attempt on-chain submission (non-blocking, best-effort)
-    let onChainResult: { txHash: string; explorerUrl: string } | null = null
-    if (isOnChainEnabled() && qualityCheck.status !== 'flagged') {
-      try {
-        const result = await submitReviewOnChain(project.category, project.id, contentHash)
-        if (result) {
-          await prisma.review.update({
-            where: { id: review.id },
-            data: {
-              txHash: result.txHash,
-              onChainReviewId: result.reviewId,
+    switch (sort) {
+      case 'new':
+        reviews = await prisma.review.findMany({
+          where: { status: 'active' },
+          orderBy: { createdAt: 'desc' },
+          take: limit,
+          include: {
+            reviewer: {
+              select: {
+                id: true,
+                address: true,
+                displayName: true,
+                avatarUrl: true,
+              },
             },
+            project: {
+              select: {
+                id: true,
+                name: true,
+                image: true,
+                category: true,
+              },
+            },
+          },
+        })
+        break
+
+      case 'top':
+        reviews = await prisma.review.findMany({
+          where: { status: 'active' },
+          orderBy: { upvotes: 'desc' },
+          take: limit,
+          include: {
+            reviewer: {
+              select: {
+                id: true,
+                address: true,
+                displayName: true,
+                avatarUrl: true,
+              },
+            },
+            project: {
+              select: {
+                id: true,
+                name: true,
+                image: true,
+                category: true,
+              },
+            },
+          },
+        })
+        break
+
+      case 'hot':
+      default:
+        // Hot = upvotes - downvotes, with recent bias
+        const allReviews = await prisma.review.findMany({
+          where: { status: 'active' },
+          include: {
+            reviewer: {
+              select: {
+                id: true,
+                address: true,
+                displayName: true,
+                avatarUrl: true,
+              },
+            },
+            project: {
+              select: {
+                id: true,
+                name: true,
+                image: true,
+                category: true,
+              },
+            },
+          },
+        })
+
+        // Calculate hot score: (upvotes - downvotes) / (days_old + 1)
+        reviews = allReviews
+          .map((r) => {
+            const daysOld = (Date.now() - new Date(r.createdAt).getTime()) / (1000 * 60 * 60 * 24)
+            const netVotes = r.upvotes - r.downvotes
+            const hotScore = netVotes / (daysOld + 1)
+            return { ...r, hotScore }
           })
-          onChainResult = {
-            txHash: result.txHash,
-            explorerUrl: getExplorerUrl(result.txHash),
-          }
-        }
-      } catch (e) {
-        console.error('On-chain submission failed (non-critical):', e)
-      }
+          .sort((a, b) => b.hotScore - a.hotScore)
+          .slice(0, limit)
+        break
     }
 
-    // Update project stats
-    await prisma.project.update({
-      where: { id: project.id },
-      data: {
-        reviewCount: { increment: 1 },
-        avgRating: {
-          set: (project.avgRating * project.reviewCount + rating) / (project.reviewCount + 1),
-        },
-      },
-    })
-
-    return NextResponse.json(
-      {
-        id: review.id,
-        projectId: review.project.id,
-        projectName: review.project.name,
-        reviewerAddress: review.reviewer.address,
-        rating: review.rating,
-        content: review.content,
-        category: review.project.category,
-        upvotes: review.upvotes,
-        downvotes: review.downvotes,
-        createdAt: review.createdAt.toISOString(),
-        qualityScore: qualityCheck.score,
-        qualityStatus: qualityCheck.status,
-        contentHash,
-        onChain: onChainResult,
-      },
-      { status: 201 }
-    )
+    return NextResponse.json({ reviews })
   } catch (error) {
-    console.error('Error creating review:', error)
-    return NextResponse.json({ error: 'Failed to create review' }, { status: 500 })
+    console.error('Failed to fetch reviews:', error)
+    return NextResponse.json({ error: 'Failed to fetch reviews' }, { status: 500 })
   }
 }

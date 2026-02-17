@@ -5,17 +5,9 @@ import Link from 'next/link'
 import { Trophy } from 'lucide-react'
 
 const categoryMeta: Record<string, { title: string; desc: string }> = {
-  'openclaw-skills': {
-    title: '🧩 OpenClaw Skills & Plugins',
-    desc: 'Community-curated trust ratings for AI coding tools. Stake to review. Earn trust, not likes.',
-  },
   'ai-agents': {
     title: '🤖 AI Agents',
     desc: 'Autonomous agents ranked by reliability, safety, and performance.',
-  },
-  'memecoin': {
-    title: '🐸 Memecoins',
-    desc: 'Community-driven rankings of meme tokens. Skin in the game required.',
   },
   'defi': {
     title: '🏦 DeFi Protocols',
