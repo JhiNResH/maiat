@@ -21,7 +21,7 @@
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.36.2",
     "clsx": "^2.1.1",
-    "ethers": "^6.16.0",
+    "ethers": "6.13.1",
     "lucide-react": "^0.563.0",
     "next": "^16.1.6",
     "openai": "^6.22.0",
@@ -47,5 +47,8 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "overrides": {
+    "ethers": "6.13.1"
   }
 }
