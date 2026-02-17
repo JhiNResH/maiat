@@ -14,7 +14,11 @@ interface ScarabBalance {
   lastClaimAt: string | null
 }
 
-export function ScarabWidget() {
+interface ScarabWidgetProps {
+  embedded?: boolean
+}
+
+export function ScarabWidget({ embedded = false }: ScarabWidgetProps) {
   const { authenticated, user } = usePrivy()
   const [balance, setBalance] = useState<ScarabBalance | null>(null)
   const [claiming, setClaiming] = useState(false)
@@ -69,9 +73,13 @@ export function ScarabWidget() {
 
   const canClaim = balance && (!balance.lastClaimAt || !isSameDay(new Date(balance.lastClaimAt), new Date()))
 
+  const containerClass = embedded
+    ? 'w-full'
+    : 'fixed top-4 right-4 z-50'
+
   return (
-    <div className="fixed top-4 right-4 z-50">
-      <div className="bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl p-4 min-w-[200px]">
+    <div className={containerClass}>
+      <div className="bg-[#111113] border border-[#1f1f23] rounded-xl shadow-2xl p-6 min-w-[200px]">
         {/* Balance */}
         <div className="flex items-center justify-between mb-3">
           <div>
