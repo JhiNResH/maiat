@@ -42,11 +42,20 @@ async function getAISummary(projectName: string, reviews: any[], category?: stri
     ].filter(Boolean).join('\n')
 
     let prompt: string
+    const baseInstructions = `You are a crypto analyst. Be concise. Use this EXACT format (no markdown headers, no bullet lists):
+
+SUMMARY: [1-2 sentences max]
+FUNDING: [amount raised, investors — or "No public data"]
+STRENGTHS: [2-3 short points separated by " | "]
+RISKS: [2-3 short points separated by " | "]
+
+Keep total response under 200 words. No intro, no disclaimers.`
+
     if (reviews.length === 0) {
-      prompt = `You are a crypto/DeFi analyst writing for a trust score platform. Research "${projectName}" and provide:\n1. What it does (1 sentence)\n2. Funding: total raised, investors, rounds (be specific — search for this)\n3. Key strengths (1-2 points)\n4. Risks (1-2 points)\n\nBe factual. If you can't find funding info, say "No public funding data found."\n\n${context}`
+      prompt = `${baseInstructions}\n\nResearch "${projectName}".\n\n${context}`
     } else {
-      const reviewTexts = reviews.slice(0, 10).map(r => `${r.rating}/5: "${r.content}"`).join('\n')
-      prompt = `You are a crypto analyst. Research "${projectName}" and provide:\n1. Brief summary based on reviews\n2. Funding: total raised, investors, rounds (search for this)\n3. Strengths and concerns from reviews\n\nBe objective and data-driven.\n\n${context}\n\nReviews:\n${reviewTexts}`
+      const reviewTexts = reviews.slice(0, 5).map(r => `${r.rating}/5: "${r.content.slice(0, 100)}"`).join('\n')
+      prompt = `${baseInstructions}\n\nResearch "${projectName}" considering these reviews:\n${reviewTexts}\n\n${context}`
     }
     
     const result = await model.generateContent(prompt)
@@ -261,7 +270,26 @@ export default async function ProjectPage({ params }: Props) {
             <span>🤖 AI Analysis</span>
             <span className="text-xs font-normal text-gray-400 dark:text-gray-500">(Powered by Gemini)</span>
           </h3>
-          <p className="text-sm font-mono text-gray-700 dark:text-gray-200 leading-relaxed">{aiSummary}</p>
+          <div className="text-sm font-mono text-gray-700 dark:text-gray-200 leading-relaxed space-y-2">
+            {aiSummary.split('\n').filter((l: string) => l.trim()).map((line: string, i: number) => {
+              const [label, ...rest] = line.split(':')
+              const value = rest.join(':').trim()
+              if (['SUMMARY', 'FUNDING', 'STRENGTHS', 'RISKS'].includes(label.trim().toUpperCase())) {
+                return (
+                  <div key={i} className="flex gap-2">
+                    <span className={`text-xs font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                      label.trim().toUpperCase() === 'RISKS' ? 'bg-red-500/10 text-red-400' :
+                      label.trim().toUpperCase() === 'STRENGTHS' ? 'bg-green-500/10 text-green-400' :
+                      label.trim().toUpperCase() === 'FUNDING' ? 'bg-blue-500/10 text-blue-400' :
+                      'bg-purple-500/10 text-purple-400'
+                    }`}>{label.trim()}</span>
+                    <span className="text-gray-600 dark:text-gray-300">{value}</span>
+                  </div>
+                )
+              }
+              return <p key={i} className="text-gray-600 dark:text-gray-300">{line}</p>
+            })}
+          </div>
         </div>
 
         {/* Rating Distribution + Trend Chart */}
