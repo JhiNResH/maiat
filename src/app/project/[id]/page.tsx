@@ -27,7 +27,10 @@ async function getAISummary(projectName: string, reviews: any[], category?: stri
   try {
     const { GoogleGenerativeAI } = await import('@google/generative-ai')
     const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || '')
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
+    const model = genAI.getGenerativeModel({ 
+      model: 'gemini-2.0-flash',
+      tools: [{ googleSearch: {} } as any],
+    })
     
     const type = category === 'm/ai-agents' ? 'AI agent' : 'DeFi protocol'
     const context = [
@@ -39,10 +42,10 @@ async function getAISummary(projectName: string, reviews: any[], category?: stri
 
     let prompt: string
     if (reviews.length === 0) {
-      prompt = `You are a crypto/DeFi analyst writing for a trust score platform. Based on the following project info, give a trust assessment in 2-3 sentences. Cover: what it actually does, key strengths, potential risks. Be specific and factual — do NOT guess based on the name alone.\n\n${context}`
+      prompt = `You are a crypto/DeFi analyst writing for a trust score platform. Research "${projectName}" and provide:\n1. What it does (1 sentence)\n2. Funding: total raised, investors, rounds (be specific — search for this)\n3. Key strengths (1-2 points)\n4. Risks (1-2 points)\n\nBe factual. If you can't find funding info, say "No public funding data found."\n\n${context}`
     } else {
       const reviewTexts = reviews.slice(0, 10).map(r => `${r.rating}/5: "${r.content}"`).join('\n')
-      prompt = `You are a crypto analyst. Summarize these reviews of "${projectName}" in 2-3 sentences. Be objective and data-driven. Mention key strengths and concerns.\n\n${context}\n\nReviews:\n${reviewTexts}`
+      prompt = `You are a crypto analyst. Research "${projectName}" and provide:\n1. Brief summary based on reviews\n2. Funding: total raised, investors, rounds (search for this)\n3. Strengths and concerns from reviews\n\nBe objective and data-driven.\n\n${context}\n\nReviews:\n${reviewTexts}`
     }
     
     const result = await model.generateContent(prompt)
