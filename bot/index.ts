@@ -260,7 +260,14 @@ bot.command('score', async (ctx) => {
 bot.command('search', async (ctx) => {
   const query = ctx.match?.trim()
   if (!query) {
-    await ctx.reply('Usage: /search <query>\n\nExample: /search AI agent')
+    // Show category browse buttons
+    const keyboard = new InlineKeyboard()
+      .text('🤖 AI Agents', 'browse_ai-agents')
+      .text('💰 DeFi', 'browse_defi')
+    await ctx.reply('🔍 *Search Maiat*\n\nChoose a category or type:\n`/search <project name>`', { 
+      parse_mode: 'Markdown', 
+      reply_markup: keyboard 
+    })
     return
   }
 
@@ -527,6 +534,31 @@ bot.on('message:text', async (ctx) => {
 bot.on('callback_query:data', async (ctx) => {
   const data = ctx.callbackQuery.data
   await ctx.answerCallbackQuery()
+  
+  if (data.startsWith('browse_')) {
+    const cat = data.replace('browse_', '')
+    const category = cat === 'defi' ? 'm/defi' : 'm/ai-agents'
+    const label = cat === 'defi' ? 'DeFi' : 'AI Agents'
+    const projects = await prisma.project.findMany({
+      where: { category },
+      take: 10,
+      orderBy: { reviewCount: 'desc' },
+    })
+    if (projects.length === 0) {
+      await ctx.reply(`No ${label} projects yet.`)
+      return
+    }
+    let msg = `📂 *${label}* (${projects.length})\n\n`
+    const keyboard = new InlineKeyboard()
+    for (const p of projects) {
+      const score = Math.round(p.avgRating * 20)
+      const emoji = score >= 80 ? '🟢' : score >= 50 ? '🟡' : '🔴'
+      msg += `${emoji} *${p.name}* — ${score}/100 (${p.reviewCount} reviews)\n`
+      keyboard.text(p.name, `score_${p.name}`).row()
+    }
+    await ctx.reply(msg, { parse_mode: 'Markdown', reply_markup: keyboard })
+    return
+  }
   
   if (data.startsWith('score_')) {
     const name = data.replace('score_', '')
