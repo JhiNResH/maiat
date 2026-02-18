@@ -50,7 +50,7 @@
     "node": ">=18"
   },
   "overrides": {
-    "ethers": "$ethers"
+    "ethers": "6.13.1"
   },
   "prisma": {
     "seed": "npx tsx prisma/seed.ts"
