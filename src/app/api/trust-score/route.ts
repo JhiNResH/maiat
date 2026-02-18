@@ -98,10 +98,70 @@ export async function GET(request: NextRequest) {
   })
 
   if (!project) {
-    return NextResponse.json(
-      { error: `Project not found: ${projectQuery || addressQuery}` },
-      { status: 404 }
-    )
+    // Auto-create: try CoinGecko for DeFi, or create with defaults
+    const query = (projectQuery || addressQuery)!
+    try {
+      const slug = query.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+      const cgRes = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(query)}`)
+      const cgData = cgRes.ok ? await cgRes.json() : null
+      const coin = cgData?.coins?.[0]
+      
+      const newProject = await prisma.project.create({
+        data: {
+          id: crypto.randomUUID(),
+          address: addressQuery || `auto:${slug}`,
+          name: coin?.name || query,
+          slug: slug,
+          description: coin ? `${coin.name} (${coin.symbol?.toUpperCase()})` : `Auto-discovered project: ${query}`,
+          category: 'defi',
+          image: coin?.large || coin?.thumb || null,
+          status: 'active',
+          avgRating: 0,
+          reviewCount: 0,
+          updatedAt: new Date(),
+        },
+      })
+      
+      const aiBaseline = getAIBaselineScore(newProject.name, newProject.category)
+      const responseData = {
+        project: newProject.name,
+        category: 'DeFi',
+        contract: newProject.address,
+        website: null,
+        chain: 'Ethereum',
+        trustScore: aiBaseline,
+        riskLevel: aiBaseline >= 80 ? 'Low' : aiBaseline >= 50 ? 'Medium' : 'High',
+        scoreBreakdown: {
+          aiBaseline,
+          communityScore: null,
+          aiWeight: 100,
+          communityWeight: 0,
+          note: 'New project — AI-only score. Be the first to review!',
+        },
+        reviewCount: 0,
+        avgRating: 0,
+        sentiment: null,
+        ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+        strengths: [],
+        concerns: [],
+        recommendation: 'New project — insufficient data. Do your own research.',
+        lastReviewAt: null,
+        dataSource: 'maiat.vercel.app',
+        autoCreated: true,
+      }
+
+      sendReviewNeededAlert(newProject.name, aiBaseline, 0, newProject.slug, 'auto-created')
+        .catch(() => {})
+
+      return NextResponse.json(responseData, {
+        headers: { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'public, max-age=60' },
+      })
+    } catch {
+      return NextResponse.json(
+        { error: `Project not found: ${query}` },
+        { status: 404 }
+      )
+    }
   }
 
   const aiBaseline = getAIBaselineScore(project.name, project.category)
