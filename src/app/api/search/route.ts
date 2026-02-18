@@ -64,10 +64,15 @@ export async function GET(request: NextRequest) {
       }),
     ])
 
-    // If no projects found and autoCreate enabled, search external APIs
+    // Check if there's an exact name match
+    const hasExactMatch = projects.some(
+      (p: any) => p.name.toLowerCase() === query.toLowerCase() || p.slug.toLowerCase() === query.toLowerCase()
+    )
+
+    // If no exact match and autoCreate enabled, search external APIs
     let autoCreated = null
     let aiAnalysis = null
-    if (projects.length === 0 && autoCreate) {
+    if (!hasExactMatch && autoCreate) {
       console.log(`[Maiat Search] No local match for "${rawQuery}", searching external APIs...`)
       const externalData = await searchExternalAPIs(rawQuery)
       
