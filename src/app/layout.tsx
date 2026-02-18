@@ -12,7 +12,8 @@ export const metadata: Metadata = {
   title: 'Maiat - Trust Layer for Agentic Commerce',
   description: 'Review and rate AI agents and DeFi protocols with on-chain verification',
   icons: {
-    icon: '/maiat-rmbg.png',
+    icon: '/favicon.ico',
+    apple: '/apple-touch-icon.png',
   },
   other: {
     'base:app_id': '698f75b47ca07f5750bbd889',
