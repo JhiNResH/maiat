@@ -1,12 +1,21 @@
 import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { SearchBar } from '@/components/SearchBar'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-export default async function HomePage() {
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  const { q } = await searchParams
   const allProjects = await prisma.project.findMany({
+    where: q ? {
+      OR: [
+        { name: { contains: q, mode: 'insensitive' } },
+        { description: { contains: q, mode: 'insensitive' } },
+        { category: { contains: q, mode: 'insensitive' } },
+      ]
+    } : undefined,
     orderBy: { reviewCount: 'desc' },
   })
 
@@ -25,11 +34,7 @@ export default async function HomePage() {
           <h1 className="text-xl font-bold tracking-tight font-mono text-gray-900 dark:text-gray-100">MAIAT</h1>
         </div>
         <div className="flex-1 flex justify-center px-8">
-          <input
-            type="text"
-            placeholder="Search projects, agents, protocols..."
-            className="w-full max-w-xl px-3 py-1.5 border border-gray-300 rounded text-sm font-mono focus:outline-none focus:border-gray-500 bg-gray-50 dark:bg-[#0f1117]"
-          />
+          <SearchBar />
         </div>
         <div className="flex items-center gap-3 shrink-0">
           <ThemeToggle />

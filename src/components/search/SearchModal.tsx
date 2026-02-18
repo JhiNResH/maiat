@@ -3,17 +3,17 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, X, Loader2, FileText, User, Sparkles } from 'lucide-react'
-import { findOrCreateProject } from '@/app/actions/createProject'
-import { useStore } from '@/lib/store'
 
 interface SearchResult {
   projects: Array<{
     id: string
     address: string
     name: string
+    slug?: string
     category: string
     avgRating: number
     reviewCount: number
+    image?: string
   }>
   reviews: Array<{
     id: string
@@ -29,17 +29,7 @@ interface SearchResult {
     displayName: string | null
     reputationScore: number
   }>
-  aiAnalysis?: {
-    source: string
-    cached: boolean
-    data: {
-      name: string
-      type: string
-      score: number
-      status: string
-      summary: string
-    }
-  }
+  autoCreated?: boolean
 }
 
 interface SearchModalProps {
@@ -53,10 +43,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [activeTab, setActiveTab] = useState<'all' | 'projects' | 'reviews' | 'users'>('all')
-  
-  const addProject = useStore(state => state.addProject)
 
   // Focus input when modal opens
   useEffect(() => {
@@ -79,25 +66,23 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isOpen, onClose])
 
-  // Debounced search
-  const search = useCallback(async (q: string, analyze = false) => {
+  // Debounced search — auto-creates from CoinGecko/DeFiLlama if no local results
+  const search = useCallback(async (q: string) => {
     if (q.length < 2) {
       setResults(null)
       return
     }
 
     setIsLoading(true)
-    if (analyze) setIsAnalyzing(true)
 
     try {
-      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&analyze=${analyze}`)
+      const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&auto=true`)
       const data = await res.json()
       setResults(data)
     } catch (err) {
       console.error('Search failed:', err)
     } finally {
       setIsLoading(false)
-      setIsAnalyzing(false)
     }
   }, [])
 
@@ -111,43 +96,16 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
     return () => clearTimeout(timer)
   }, [query, search])
 
-  // Handle AI analysis
-  const handleAnalyze = async () => {
-    if (query.length < 2) return
-    
-    setIsAnalyzing(true)
-    try {
-      const result = await findOrCreateProject(query)
-      
-      if (result.success && result.project) {
-        addProject({
-          id: result.project.id,
-          name: result.project.name,
-          category: result.project.category,
-          avgRating: result.project.avgRating,
-          reviewCount: 0,
-          description: result.project.description,
-        })
-        
-        const targetUrl = `/${result.project.category}/${result.project.id}`
-        console.log('[SearchModal] Navigating to:', targetUrl)
-        router.push(targetUrl)
-        onClose()
-      } else {
-        search(query, true)
-      }
-    } catch (err) {
-      console.error('Analysis failed:', err)
-      search(query, true)
-    } finally {
-      setIsAnalyzing(false)
-    }
+  // Navigate to project (handles auto-created projects too)
+  const handleNavigateToProject = (project: { address: string; slug?: string; category: string }) => {
+    const path = `/${project.category}/${project.slug || project.address}`
+    router.push(path)
+    onClose()
   }
 
   // Handle result clicks
-  const handleProjectClick = (address: string, category: string) => {
-    router.push(`/${category}/${address}`)
-    onClose()
+  const handleProjectClick = (project: { address: string; slug?: string; category: string }) => {
+    handleNavigateToProject(project)
   }
 
   const handleReviewClick = (reviewId: string) => {
@@ -234,62 +192,12 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                 ))}
               </div>
 
-              {/* AI Analysis Button */}
-              {(!results?.aiAnalysis && (!results?.projects.length || results.projects.length === 0) && !isAnalyzing) && (
-                <button
-                  onClick={handleAnalyze}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-[#1a1a1d] border-b border-[#1f1f23] transition-colors"
-                >
-                  <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
-                    <Sparkles className="w-5 h-5 text-purple-400" />
-                  </div>
-                  <div>
-                    <p className="text-white font-medium">Analyze "{query}" with Maiat AI</p>
-                    <p className="text-sm text-[#6b6b70]">Get real-time project analysis</p>
-                  </div>
-                </button>
-              )}
-
-              {/* AI Analysis Loading */}
-              {isAnalyzing && (
-                <div className="flex items-center gap-3 px-4 py-4 border-b border-[#1f1f23]">
-                  <Loader2 className="w-5 h-5 text-purple-500 animate-spin" />
-                  <span className="text-[#adadb0]">Maiat is analyzing "{query}"...</span>
+              {/* Auto-created indicator */}
+              {results?.autoCreated && results.projects.length > 0 && (
+                <div className="flex items-center gap-2 px-4 py-2 border-b border-[#1f1f23] bg-green-500/5">
+                  <Sparkles className="w-4 h-4 text-green-400" />
+                  <span className="text-xs text-green-400">Auto-discovered from CoinGecko/DeFiLlama</span>
                 </div>
-              )}
-
-              {/* AI Analysis Result */}
-              {results?.aiAnalysis && (
-                <button
-                  onClick={handleAnalyze}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-[#1a1a1d] border-b border-[#1f1f23] transition-colors"
-                >
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                    results.aiAnalysis.data.status === 'VERIFIED' ? 'bg-green-500/20' :
-                    results.aiAnalysis.data.status === 'RISKY' ? 'bg-red-500/20' : 'bg-yellow-500/20'
-                  }`}>
-                    <Sparkles className={`w-5 h-5 ${
-                      results.aiAnalysis.data.status === 'VERIFIED' ? 'text-green-400' :
-                      results.aiAnalysis.data.status === 'RISKY' ? 'text-red-400' : 'text-yellow-400'
-                    }`} />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="text-white font-medium">{results.aiAnalysis.data.name}</p>
-                      <span className={`px-2 py-0.5 text-xs rounded ${
-                        results.aiAnalysis.data.status === 'VERIFIED' ? 'bg-green-500/20 text-green-400' :
-                        results.aiAnalysis.data.status === 'RISKY' ? 'bg-red-500/20 text-red-400' : 'bg-yellow-500/20 text-yellow-400'
-                      }`}>
-                        {results.aiAnalysis.data.status}
-                      </span>
-                    </div>
-                    <p className="text-sm text-[#6b6b70] line-clamp-2">{results.aiAnalysis.data.summary}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-lg font-bold text-white">{results.aiAnalysis.data.score.toFixed(1)}</p>
-                    <p className="text-xs text-[#6b6b70]">Score</p>
-                  </div>
-                </button>
               )}
 
               {/* Projects - Grouped by Category */}
@@ -324,7 +232,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                       {projects.map(project => (
                         <button
                           key={project.id}
-                          onClick={() => handleProjectClick(project.address, project.category)}
+                          onClick={() => handleProjectClick(project)}
                           className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-[#1a1a1d] border-b border-[#1f1f23] transition-colors"
                         >
                           <div className={`w-10 h-10 rounded-lg ${
@@ -393,10 +301,10 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
               ))}
 
               {/* No Results */}
-              {totalResults === 0 && !isLoading && !results?.aiAnalysis && !isAnalyzing && (
+              {totalResults === 0 && !isLoading && (
                 <div className="px-4 py-8 text-center text-[#6b6b70]">
                   <p>No results found for "{query}"</p>
-                  <p className="text-sm mt-1">Try Maiat AI analysis above</p>
+                  <p className="text-sm mt-1">Not found on CoinGecko or DeFiLlama</p>
                 </div>
               )}
             </div>

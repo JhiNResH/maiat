@@ -27,7 +27,7 @@ export async function getOrCreateWallet(telegramId: string, displayName?: string
     // Search for existing user
     let user: any = null
     try {
-      user = await privy.getUserByCustomId(customId)
+      user = await (privy as any).getUserByCustomId(customId)
     } catch (e) {
       // User doesn't exist yet
     }
@@ -39,20 +39,20 @@ export async function getOrCreateWallet(telegramId: string, displayName?: string
       )
       return {
         userId: user.id,
-        walletAddress: wallet?.address || '',
+        walletAddress: (wallet as any)?.address || '',
         isNew: false,
       }
     }
 
-    // Create new user with custom ID
+    // Create new user with a custom ID linked account
     const newUser = await privy.importUser({
-      linkedAccounts: [],
+      linkedAccounts: [
+        {
+          type: 'custom_auth',
+          custom_user_id: customId,
+        } as any,
+      ],
       createEthereumWallet: true,
-      customMetadata: {
-        telegramId,
-        displayName: displayName || `tg:${telegramId}`,
-        source: 'maiat-bot',
-      },
     })
 
     // Get the created wallet
@@ -62,7 +62,7 @@ export async function getOrCreateWallet(telegramId: string, displayName?: string
 
     return {
       userId: newUser.id,
-      walletAddress: wallet?.address || '',
+      walletAddress: (wallet as any)?.address || '',
       isNew: true,
     }
   } catch (error) {
