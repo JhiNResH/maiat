@@ -119,7 +119,7 @@ export default async function ProjectPage({ params }: Props) {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0f1117]">
       {/* Header */}
-      <header className="bg-white dark:bg-[#1a1b23] border-b border-gray-200 dark:border-gray-700 px-6 py-3 flex items-center">
+      <header className="bg-white dark:bg-[#1a1b23] border-b border-gray-200 dark:border-gray-700 px-3 sm:px-6 py-3 flex items-center gap-2">
         <Link href="/" className="flex items-center gap-2 shrink-0 hover:opacity-70">
           <img src="/maiat-rmbg.png" alt="MAIAT" className="w-8 h-8" />
           <span className="text-xl font-bold tracking-tight font-mono text-gray-900 dark:text-gray-100">MAIAT</span>
@@ -132,7 +132,7 @@ export default async function ProjectPage({ params }: Props) {
         </div>
       </header>
 
-      <main className="px-6 py-4 max-w-5xl mx-auto">
+      <main className="px-3 sm:px-6 py-4 max-w-5xl mx-auto">
         {/* Breadcrumb */}
         <div className="mb-3 text-xs font-mono text-gray-400 dark:text-gray-500">
           <Link href="/" className="hover:text-gray-600 dark:text-gray-300">Home</Link>
