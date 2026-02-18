@@ -26,7 +26,7 @@ export async function generateMetadata({ params }: Props) {
 async function getAISummary(projectName: string, reviews: any[], category?: string, description?: string, website?: string, address?: string): Promise<string> {
   try {
     const { GoogleGenerativeAI } = await import('@google/generative-ai')
-    const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY!)
+    const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || '')
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
     
     const type = category === 'm/ai-agents' ? 'AI agent' : 'DeFi protocol'
@@ -354,6 +354,13 @@ export default async function ProjectPage({ params }: Props) {
             GET /api/trust-score?project={project.name}
           </code>
           <p className="text-xs font-mono text-gray-400 dark:text-gray-500 mt-2">Public endpoint for AI agents. No authentication required.</p>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-4 text-center text-xs font-mono text-gray-400 dark:text-gray-500 py-4">
+          Maiat — Verified review layer for agentic commerce · 
+          <a href="https://t.me/MaiatBot" className="text-blue-600 hover:underline ml-1">@MaiatBot</a> · 
+          <a href="https://x.com/0xmaiat" target="_blank" rel="noopener" className="text-blue-600 hover:underline ml-1">@0xmaiat</a>
         </div>
       </main>
     </div>
