@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { sendReviewNeededAlert } from '@/lib/telegram-alert'
 
 export const dynamic = 'force-dynamic'
 
@@ -128,7 +129,7 @@ export async function GET(request: NextRequest) {
   const chain = project.category === 'm/ai-agents' ? 'Base' : 
     project.name === 'PancakeSwap' ? 'BNB Chain' : 'Ethereum'
 
-  return NextResponse.json({
+  const responseData = {
     project: project.name,
     category: project.category === 'm/ai-agents' ? 'AI Agent' : 'DeFi',
     contract: project.address,
@@ -160,7 +161,16 @@ export async function GET(request: NextRequest) {
           : 'Low trust — significant concerns or insufficient data',
     lastReviewAt: project.reviews[0]?.createdAt || null,
     dataSource: 'maiat.vercel.app',
-  }, {
+  }
+
+  // Send Telegram alert if project needs more reviews
+  if (project.reviewCount < 5) {
+    const queriedBy = request.headers.get('x-agent-address') || request.headers.get('user-agent')?.slice(0, 50)
+    sendReviewNeededAlert(project.name, trustScore, project.reviewCount, queriedBy || undefined)
+      .catch(() => {}) // fire-and-forget, don't block response
+  }
+
+  return NextResponse.json(responseData, {
     headers: {
       'Access-Control-Allow-Origin': '*',
       'Cache-Control': 'public, max-age=60',
