@@ -50,5 +50,8 @@
   },
   "overrides": {
     "ethers": "$ethers"
+  },
+  "prisma": {
+    "seed": "npx tsx prisma/seed.ts"
   }
 }
