@@ -94,9 +94,9 @@ export async function getMarketData(
 
   // Fetch in parallel
   const [dex, llama, gecko] = await Promise.all([
-    isRealAddress ? fetchDEXScreener(address) : Promise.resolve({}),
-    category === 'm/defi' ? fetchDeFiLlama(name) : Promise.resolve({}),
-    isRealAddress ? fetchCoinGecko(address).catch(() => ({})) : Promise.resolve({}),
+    isRealAddress ? fetchDEXScreener(address) : Promise.resolve({} as Partial<MarketData>),
+    category === 'm/defi' ? fetchDeFiLlama(name) : Promise.resolve({} as Partial<MarketData>),
+    isRealAddress ? fetchCoinGecko(address).catch(() => ({} as Partial<MarketData>)) : Promise.resolve({} as Partial<MarketData>),
   ])
 
   return {
@@ -104,11 +104,11 @@ export async function getMarketData(
     ...llama,
     ...gecko,
     // DEXScreener data takes priority for price/volume
-    price: dex.price || gecko.price,
-    volume24h: dex.volume24h,
-    liquidity: dex.liquidity,
-    marketCap: gecko.marketCap || dex.marketCap,
-  }
+    price: (dex as any).price || (gecko as any).price,
+    volume24h: (dex as any).volume24h,
+    liquidity: (dex as any).liquidity,
+    marketCap: (gecko as any).marketCap || (dex as any).marketCap,
+  } as MarketData
 }
 
 /**
