@@ -31,6 +31,13 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: false,
   },
+
+  async rewrites() {
+    return [
+      { source: '/ai-agent/:id', destination: '/project/:id' },
+      { source: '/defi/:id', destination: '/project/:id' },
+    ]
+  },
 }
 
 module.exports = nextConfig
