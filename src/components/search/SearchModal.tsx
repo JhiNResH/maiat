@@ -30,6 +30,15 @@ interface SearchResult {
     reputationScore: number
   }>
   autoCreated?: boolean
+  aiAnalysis?: {
+    name: string
+    type: string
+    score: number
+    status: 'VERIFIED' | 'UNSTABLE' | 'RISKY'
+    summary: string
+    features: string[]
+    warnings: string[]
+  } | null
 }
 
 interface SearchModalProps {
@@ -192,12 +201,50 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                 ))}
               </div>
 
-              {/* Auto-created indicator */}
+              {/* Auto-created indicator + AI Analysis */}
               {results?.autoCreated && results.projects.length > 0 && (
-                <div className="flex items-center gap-2 px-4 py-2 border-b border-[#1f1f23] bg-green-500/5">
-                  <Sparkles className="w-4 h-4 text-green-400" />
-                  <span className="text-xs text-green-400">Auto-discovered from CoinGecko/DeFiLlama</span>
-                </div>
+                <>
+                  <div className="flex items-center gap-2 px-4 py-2 border-b border-[#1f1f23] bg-green-500/5">
+                    <Sparkles className="w-4 h-4 text-green-400" />
+                    <span className="text-xs text-green-400">Auto-discovered from CoinGecko/DeFiLlama</span>
+                  </div>
+                  
+                  {/* AI Analysis Panel */}
+                  {results.aiAnalysis && (
+                    <div className="px-4 py-3 border-b border-[#1f1f23] bg-purple-500/5">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Sparkles className="w-4 h-4 text-purple-400" />
+                        <span className="text-sm font-medium text-purple-300">🤖 AI Analysis Complete</span>
+                        <span className={`text-xs px-2 py-0.5 rounded ${
+                          results.aiAnalysis.status === 'VERIFIED' ? 'bg-green-500/20 text-green-400' :
+                          results.aiAnalysis.status === 'RISKY' ? 'bg-red-500/20 text-red-400' :
+                          'bg-yellow-500/20 text-yellow-400'
+                        }`}>
+                          {results.aiAnalysis.status}
+                        </span>
+                        <span className="text-xs text-[#adadb0]">Score: {results.aiAnalysis.score.toFixed(1)}/5.0</span>
+                      </div>
+                      <p className="text-sm text-[#adadb0] mb-2">{results.aiAnalysis.summary}</p>
+                      {results.aiAnalysis.features.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-xs text-[#6b6b70] mb-1">Features:</p>
+                          <div className="flex flex-wrap gap-1">
+                            {results.aiAnalysis.features.slice(0, 3).map((f, i) => (
+                              <span key={i} className="text-xs px-2 py-0.5 bg-blue-500/10 text-blue-400 rounded">
+                                {f}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {results.aiAnalysis.warnings.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-xs text-red-400">⚠️ {results.aiAnalysis.warnings[0]}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
               )}
 
               {/* Projects - Grouped by Category */}
