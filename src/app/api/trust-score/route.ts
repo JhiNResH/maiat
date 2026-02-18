@@ -166,7 +166,7 @@ export async function GET(request: NextRequest) {
   // Send Telegram alert if project needs more reviews
   if (project.reviewCount < 5) {
     const queriedBy = request.headers.get('x-agent-address') || request.headers.get('user-agent')?.slice(0, 50)
-    sendReviewNeededAlert(project.name, trustScore, project.reviewCount, queriedBy || undefined)
+    sendReviewNeededAlert(project.name, trustScore, project.reviewCount, project.slug, queriedBy || undefined)
       .catch(() => {}) // fire-and-forget, don't block response
   }
 
