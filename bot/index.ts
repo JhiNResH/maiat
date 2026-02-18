@@ -16,6 +16,7 @@
 import { Bot, Context, session, SessionFlavor, InlineKeyboard } from 'grammy'
 import { PrismaClient } from '@prisma/client'
 import { analyzeReview } from './analyze'
+import { getOrCreateWallet } from './privy'
 
 // Session data for multi-step review flow
 interface SessionData {
@@ -45,15 +46,38 @@ bot.command('start', async (ctx) => {
   // Check for deep link: /start review_AIXBT
   const payload = ctx.match
   
+  // Get or create Privy wallet for this user
+  const displayName = ctx.from?.first_name || ctx.from?.username || `User ${telegramId.slice(-4)}`
+  const wallet = await getOrCreateWallet(telegramId, displayName)
+  
+  // Ensure user exists in DB with wallet address
+  const address = wallet?.walletAddress || `tg:${telegramId}`
+  let user = await prisma.user.findUnique({ where: { address } })
+  if (!user) {
+    // Also check old tg: format
+    user = await prisma.user.findUnique({ where: { address: `tg:${telegramId}` } })
+    if (user && wallet?.walletAddress) {
+      // Upgrade to real wallet address
+      await prisma.user.update({ where: { id: user.id }, data: { address: wallet.walletAddress } })
+    } else if (!user) {
+      user = await prisma.user.create({ data: { address, displayName } })
+    }
+  }
+
+  const walletLine = wallet?.walletAddress 
+    ? `\n🔑 Your wallet: \`${wallet.walletAddress.slice(0, 6)}...${wallet.walletAddress.slice(-4)}\`` 
+    : ''
+
   const welcome = `🪲 *Welcome to Maiat*
 
-The trust score layer for crypto & AI agents.
+The trust score layer for crypto & AI agents.${walletLine}
 
 *What you can do:*
 /review <project> — Rate a project
 /score <project> — Check trust score
 /search <query> — Find projects
 /myscarab — Check your Scarab balance
+/wallet — View your wallet address
 
 _Every review makes the ecosystem safer._`
 
@@ -358,6 +382,27 @@ bot.command('myscarab', async (ctx) => {
     `_Write reviews to earn more!_`,
     { parse_mode: 'Markdown' }
   )
+})
+
+// ==========================================
+// /wallet - View wallet address
+// ==========================================
+bot.command('wallet', async (ctx) => {
+  const telegramId = ctx.from?.id?.toString()
+  if (!telegramId) return
+
+  const wallet = await getOrCreateWallet(telegramId, ctx.from?.first_name)
+  if (wallet?.walletAddress) {
+    await ctx.reply(
+      `🔑 *Your Maiat Wallet*\n\n` +
+      `Address: \`${wallet.walletAddress}\`\n` +
+      `Chain: Base\n\n` +
+      `_This is your embedded wallet powered by Privy. Your reviews are signed with this wallet._`,
+      { parse_mode: 'Markdown' }
+    )
+  } else {
+    await ctx.reply('❌ Could not create wallet. Please try again later.')
+  }
 })
 
 // ==========================================

@@ -22,19 +22,29 @@ export async function generateMetadata({ params }: Props) {
 }
 
 // Generate AI summary via Gemini
-async function getAISummary(projectName: string, reviews: any[]): Promise<string> {
-  if (reviews.length === 0) return 'No reviews available for AI analysis yet.'
-  
+async function getAISummary(projectName: string, reviews: any[], category?: string, description?: string, website?: string, address?: string): Promise<string> {
   try {
     const { GoogleGenerativeAI } = await import('@google/generative-ai')
     const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY!)
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
     
-    const reviewTexts = reviews.slice(0, 10).map(r => `${r.rating}/5: "${r.content}"`).join('\n')
+    const type = category === 'm/ai-agents' ? 'AI agent' : 'DeFi protocol'
+    const context = [
+      `Project: ${projectName} (${type})`,
+      description ? `Description: ${description}` : '',
+      website ? `Website: ${website}` : '',
+      address ? `Contract: ${address}` : '',
+    ].filter(Boolean).join('\n')
+
+    let prompt: string
+    if (reviews.length === 0) {
+      prompt = `You are a crypto/DeFi analyst writing for a trust score platform. Based on the following project info, give a trust assessment in 2-3 sentences. Cover: what it actually does, key strengths, potential risks. Be specific and factual — do NOT guess based on the name alone.\n\n${context}`
+    } else {
+      const reviewTexts = reviews.slice(0, 10).map(r => `${r.rating}/5: "${r.content}"`).join('\n')
+      prompt = `You are a crypto analyst. Summarize these reviews of "${projectName}" in 2-3 sentences. Be objective and data-driven. Mention key strengths and concerns.\n\n${context}\n\nReviews:\n${reviewTexts}`
+    }
     
-    const result = await model.generateContent(
-      `Summarize these reviews of "${projectName}" in 2-3 sentences. Be objective and data-driven. Mention key strengths and concerns.\n\nReviews:\n${reviewTexts}`
-    )
+    const result = await model.generateContent(prompt)
     return result.response.text()
   } catch (e) {
     return 'AI analysis temporarily unavailable.'
@@ -87,7 +97,7 @@ export default async function ProjectPage({ params }: Props) {
   const maxDist = Math.max(...dist, 1)
 
   // AI Summary
-  const aiSummary = await getAISummary(project.name, project.reviews)
+  const aiSummary = await getAISummary(project.name, project.reviews, project.category, project.description || '', project.website || '', project.address)
 
   // Rating trend (last 10 reviews, oldest to newest)
   const trendReviews = [...project.reviews].reverse().slice(-10)
@@ -101,12 +111,17 @@ export default async function ProjectPage({ params }: Props) {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0f1117]">
       {/* Header */}
-      <header className="bg-white dark:bg-[#1a1b23] border-b border-gray-200 dark:border-gray-700 px-6 py-3 flex items-center gap-6">
-        <Link href="/" className="text-xl font-bold tracking-tight font-mono hover:opacity-70">MAIAT</Link>
-        <div className="flex-1 max-w-xl">
-          <input type="text" placeholder="Search projects..." className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm font-mono focus:outline-none focus:border-gray-500 bg-gray-50 dark:bg-[#0f1117]" />
+      <header className="bg-white dark:bg-[#1a1b23] border-b border-gray-200 dark:border-gray-700 px-6 py-3 flex items-center">
+        <Link href="/" className="flex items-center gap-2 shrink-0 hover:opacity-70">
+          <img src="/maiat-rmbg.png" alt="MAIAT" className="w-8 h-8" />
+          <span className="text-xl font-bold tracking-tight font-mono text-gray-900 dark:text-gray-100">MAIAT</span>
+        </Link>
+        <div className="flex-1 flex justify-center px-8">
+          <input type="text" placeholder="Search projects, agents, protocols..." className="w-full max-w-xl px-3 py-1.5 border border-gray-300 rounded text-sm font-mono focus:outline-none focus:border-gray-500 bg-gray-50 dark:bg-[#0f1117]" />
         </div>
-        <a href="https://t.me/MaiatBot" className="text-xs font-mono text-blue-600 hover:underline">@MaiatBot</a>
+        <div className="flex items-center gap-3 shrink-0">
+          <a href="https://t.me/MaiatBot" className="text-xs font-mono text-blue-600 hover:underline">@MaiatBot</a>
+        </div>
       </header>
 
       <main className="px-6 py-4 max-w-5xl mx-auto">
