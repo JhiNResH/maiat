@@ -29,37 +29,37 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0f1117]">
       {/* Header */}
-      <header className="bg-white dark:bg-[#1a1b23] border-b border-gray-200 dark:border-gray-700 px-6 py-3 flex items-center">
-        <Link href="/" className="flex items-center gap-2 shrink-0 hover:opacity-70 transition-opacity">
-          <img src="/maiat-rmbg.png" alt="MAIAT" className="w-8 h-8" />
-          <h1 className="text-xl font-bold tracking-tight font-mono text-gray-900 dark:text-gray-100">MAIAT</h1>
+      <header className="bg-white dark:bg-[#1a1b23] border-b border-gray-200 dark:border-gray-700 px-3 sm:px-6 py-3 flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-1.5 sm:gap-2 shrink-0 hover:opacity-70 transition-opacity">
+          <img src="/maiat-rmbg.png" alt="MAIAT" className="w-7 h-7 sm:w-8 sm:h-8" />
+          <h1 className="text-lg sm:text-xl font-bold tracking-tight font-mono text-gray-900 dark:text-gray-100">MAIAT</h1>
         </Link>
-        <div className="flex-1 flex justify-center px-8">
+        <div className="flex-1 flex justify-center px-2 sm:px-8">
           <SearchBar />
         </div>
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <ThemeToggle />
-          <a href="https://t.me/MaiatBot" className="text-xs font-mono text-blue-600 hover:underline">@MaiatBot</a>
+          <a href="https://t.me/MaiatBot" className="text-xs font-mono text-blue-600 hover:underline hidden sm:inline">@MaiatBot</a>
         </div>
       </header>
 
-      <main className="px-6 py-4 max-w-5xl mx-auto">
+      <main className="px-3 sm:px-6 py-4 max-w-5xl mx-auto">
         {/* Stats Bar */}
         <div className="bg-white dark:bg-[#1a1b23] border border-gray-200 dark:border-gray-700 rounded-md mb-4 p-3">
-          <div className="flex items-center gap-8 text-xs font-mono">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-8 text-xs font-mono">
             <div>
-              <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500">Projects: </span>
+              <span className="text-gray-500 dark:text-gray-400">Projects: </span>
               <span className="font-bold text-gray-900 dark:text-gray-100">{totalProjects}</span>
             </div>
             <div>
-              <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500">Total Reviews: </span>
+              <span className="text-gray-500 dark:text-gray-400">Reviews: </span>
               <span className="font-bold text-gray-900 dark:text-gray-100">{totalReviews}</span>
             </div>
             <div>
-              <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500">Avg Trust Score: </span>
+              <span className="text-gray-500 dark:text-gray-400">Avg Score: </span>
               <span className="font-bold text-green-600">{avgTrustScore}/100</span>
             </div>
-            <div className="ml-auto">
+            <div className="hidden sm:block ml-auto">
               <span className="text-gray-400 dark:text-gray-500">The trust score layer for agentic commerce</span>
             </div>
           </div>
@@ -68,11 +68,13 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         {/* Table */}
         <div className="bg-white dark:bg-[#1a1b23] border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden">
           <div className="px-4 py-2.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0f1117]">
-            <span className="text-xs font-bold tracking-widest text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase font-mono">
+            <span className="text-xs font-bold tracking-widest text-gray-500 dark:text-gray-400 uppercase font-mono">
               All Projects ({totalProjects})
             </span>
           </div>
-          <table className="w-full">
+
+          {/* Desktop Table */}
+          <table className="w-full hidden md:table">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700">
                 <th className="text-left px-4 py-2 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase font-mono">#</th>
@@ -91,19 +93,17 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                 const barColor = trustScore >= 80 ? 'bg-green-500' : trustScore >= 50 ? 'bg-yellow-500' : 'bg-red-500'
                 const riskLevel = trustScore >= 80 ? 'Low' : trustScore >= 50 ? 'Medium' : 'High'
                 const riskColor = trustScore >= 80 ? 'text-green-600' : trustScore >= 50 ? 'text-yellow-600' : 'text-red-600'
-                const categoryLabel = project.category === 'm/ai-agents' ? 'AI Agent' : project.category === 'm/defi' ? 'DeFi' : project.category
+                const categoryLabel = project.category === 'm/ai-agents' ? 'AI Agent' : 'DeFi'
 
                 return (
-                  <tr key={project.id} className="border-b border-gray-50 hover:bg-blue-50/30 transition-colors">
+                  <tr key={project.id} className="border-b border-gray-50 dark:border-gray-800 hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors">
                     <td className="px-4 py-2.5 text-xs font-mono text-gray-400 dark:text-gray-500">{i + 1}</td>
                     <td className="px-4 py-2.5">
                       <Link href={`/${project.category === 'm/ai-agents' ? 'ai-agent' : 'defi'}/${(project as any).slug || project.id}`} className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:underline font-mono">
                         {project.image ? (
                           <img src={project.image} alt="" className="w-5 h-5 rounded" />
                         ) : (
-                          <div className="w-5 h-5 rounded bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-[8px] font-bold text-gray-500 dark:text-gray-400 dark:text-gray-500">
-                            {project.name.slice(0, 2)}
-                          </div>
+                          <div className="w-5 h-5 rounded bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-[8px] font-bold text-gray-500">{project.name.slice(0, 2)}</div>
                         )}
                         {project.name}
                       </Link>
@@ -127,6 +127,47 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
               })}
             </tbody>
           </table>
+
+          {/* Mobile Cards */}
+          <div className="md:hidden divide-y divide-gray-100 dark:divide-gray-800">
+            {allProjects.map((project, i) => {
+              const trustScore = calculateTrustScore(project.name, project.category, project.avgRating, project.reviewCount)
+              const scoreColor = trustScore >= 80 ? 'text-green-600' : trustScore >= 50 ? 'text-yellow-600' : 'text-red-600'
+              const riskLevel = trustScore >= 80 ? 'Low' : trustScore >= 50 ? 'Medium' : 'High'
+              const riskColor = trustScore >= 80 ? 'text-green-600' : trustScore >= 50 ? 'text-yellow-600' : 'text-red-600'
+              const categoryLabel = project.category === 'm/ai-agents' ? 'AI Agent' : 'DeFi'
+
+              return (
+                <Link
+                  key={project.id}
+                  href={`/${project.category === 'm/ai-agents' ? 'ai-agent' : 'defi'}/${(project as any).slug || project.id}`}
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors"
+                >
+                  <span className="text-xs font-mono text-gray-400 w-5 shrink-0">{i + 1}</span>
+                  {project.image ? (
+                    <img src={project.image} alt="" className="w-8 h-8 rounded shrink-0" />
+                  ) : (
+                    <div className="w-8 h-8 rounded bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs font-bold text-gray-500 shrink-0">{project.name.slice(0, 2)}</div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-blue-600 font-mono truncate">{project.name}</span>
+                      <span className="text-[10px] font-mono px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-gray-500 shrink-0">{categoryLabel}</span>
+                    </div>
+                    <div className="flex items-center gap-3 mt-0.5 text-xs font-mono text-gray-400">
+                      <span>{project.reviewCount} reviews</span>
+                      <span>⭐ {project.avgRating.toFixed(1)}</span>
+                      <span className={riskColor}>{riskLevel}</span>
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <span className={`text-lg font-bold font-mono ${scoreColor}`}>{trustScore}</span>
+                    <div className="text-[10px] font-mono text-gray-400">/100</div>
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
         </div>
 
         {/* Footer */}
