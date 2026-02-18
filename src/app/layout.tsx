@@ -4,6 +4,7 @@ import './globals.css'
 import { PrivyProvider } from '@/components/PrivyProvider'
 import { TopNav } from '@/components/TopNav'
 import { ClientLayout } from '@/components/ClientLayout'
+import { Footer } from '@/components/Footer'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -41,8 +42,11 @@ export default function RootLayout({
       </head>
       <body className={`${inter.className}`}>
         <PrivyProvider>
-          <div className="min-h-screen">
-            {children}
+          <div className="min-h-screen flex flex-col">
+            <div className="flex-1">
+              {children}
+            </div>
+            <Footer />
           </div>
         </PrivyProvider>
       </body>
