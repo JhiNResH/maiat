@@ -30,13 +30,10 @@ export default function RootLayout({
           rel="stylesheet" 
         />
       </head>
-      <body className={`${inter.className} bg-[#0a0a0b]`}>
+      <body className={`${inter.className} bg-white`}>
         <PrivyProvider>
-          <div className="min-h-screen flex flex-col">
-            <TopNav />
-            <ClientLayout>
-              {children}
-            </ClientLayout>
+          <div className="min-h-screen">
+            {children}
           </div>
         </PrivyProvider>
       </body>
