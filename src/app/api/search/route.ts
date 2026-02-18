@@ -145,6 +145,7 @@ export async function GET(request: NextRequest) {
       reviews: formattedReviews,
       users,
       autoCreated: autoCreated ? true : false,
+      aiAnalysis: aiAnalysis || null,
     })
   } catch (error) {
     console.error('[Maiat Search] Error:', error)
