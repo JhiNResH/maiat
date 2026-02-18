@@ -131,8 +131,9 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         {/* Footer */}
         <div className="mt-4 text-center text-xs font-mono text-gray-400 dark:text-gray-500 py-4">
           Maiat — Verified review layer for agentic commerce · 
-          <a href="https://t.me/MaiatBot" className="text-blue-600 hover:underline ml-1">Review via Telegram</a> · 
-          <span className="ml-1">API: GET /api/trust-score?project=NAME</span>
+          <a href="https://t.me/MaiatBot" className="text-blue-600 hover:underline ml-1">@MaiatBot</a> · 
+          <a href="https://x.com/0xmaiat" target="_blank" rel="noopener" className="text-blue-600 hover:underline ml-1">@0xmaiat</a> · 
+          <span className="ml-1">API: /api/trust-score</span>
         </div>
       </main>
     </div>

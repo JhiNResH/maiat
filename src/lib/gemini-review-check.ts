@@ -3,38 +3,42 @@
  * Validates reviews for spam, relevance, and quality
  */
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 interface ReviewQualityCheck {
   score: number; // 0-100
-  status: 'approved' | 'flagged' | 'rejected';
+  status: "approved" | "flagged" | "rejected";
   reason: string;
   isSpam: boolean;
   isRelevant: boolean;
   qualityIssues: string[];
 }
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || '');
+const genAI = new GoogleGenerativeAI(
+  process.env.GOOGLE_GEMINI_API_KEY ||
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
+    "",
+);
 
 export async function checkReviewQuality(
   content: string,
   projectName: string,
-  projectCategory: string
+  projectCategory: string,
 ): Promise<ReviewQualityCheck> {
   try {
     if (!process.env.GOOGLE_GEMINI_API_KEY) {
-      console.warn('Gemini API key not configured, skipping quality check');
+      console.warn("Gemini API key not configured, skipping quality check");
       return {
         score: 80,
-        status: 'approved',
-        reason: 'Quality check skipped (API not configured)',
+        status: "approved",
+        reason: "Quality check skipped (API not configured)",
         isSpam: false,
         isRelevant: true,
         qualityIssues: [],
       };
     }
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
 
     const prompt = `You are a quality checker for AI agent and DeFi project reviews on a trust platform called Maiat.
 
@@ -74,30 +78,36 @@ Return ONLY valid JSON, no markdown:`;
       // Try to extract JSON from the response
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
-        throw new Error('No JSON found in response');
+        throw new Error("No JSON found in response");
       }
       parsed = JSON.parse(jsonMatch[0]);
     } catch (parseError) {
-      console.error('Failed to parse Gemini response:', responseText);
+      console.error("Failed to parse Gemini response:", responseText);
       // Default to flagged if parse fails
       return {
         score: 50,
-        status: 'flagged',
-        reason: 'Quality check inconclusive',
+        status: "flagged",
+        reason: "Quality check inconclusive",
         isSpam: false,
         isRelevant: true,
-        qualityIssues: ['Unable to fully validate'],
+        qualityIssues: ["Unable to fully validate"],
       };
     }
 
-    const { score = 50, isSpam = false, isRelevant = true, qualityIssues = [], summary = '' } = parsed;
+    const {
+      score = 50,
+      isSpam = false,
+      isRelevant = true,
+      qualityIssues = [],
+      summary = "",
+    } = parsed;
 
     // Determine status based on score
-    let status: 'approved' | 'flagged' | 'rejected' = 'approved';
+    let status: "approved" | "flagged" | "rejected" = "approved";
     if (score < 40 || isSpam) {
-      status = 'rejected';
+      status = "rejected";
     } else if (score < 70) {
-      status = 'flagged';
+      status = "flagged";
     }
 
     return {
@@ -109,15 +119,15 @@ Return ONLY valid JSON, no markdown:`;
       qualityIssues: Array.isArray(qualityIssues) ? qualityIssues : [],
     };
   } catch (error) {
-    console.error('Error checking review quality with Gemini:', error);
+    console.error("Error checking review quality with Gemini:", error);
     // On error, allow with warning (fail open, not closed)
     return {
       score: 60,
-      status: 'flagged',
-      reason: 'Quality check error (allowed to proceed)',
+      status: "flagged",
+      reason: "Quality check error (allowed to proceed)",
       isSpam: false,
       isRelevant: true,
-      qualityIssues: ['Quality check failed'],
+      qualityIssues: ["Quality check failed"],
     };
   }
 }
@@ -126,9 +136,15 @@ Return ONLY valid JSON, no markdown:`;
  * Batch check multiple reviews (useful for batch operations)
  */
 export async function checkReviewsQualityBatch(
-  reviews: Array<{ content: string; projectName: string; projectCategory: string }>
+  reviews: Array<{
+    content: string;
+    projectName: string;
+    projectCategory: string;
+  }>,
 ): Promise<ReviewQualityCheck[]> {
   return Promise.all(
-    reviews.map((r) => checkReviewQuality(r.content, r.projectName, r.projectCategory))
+    reviews.map((r) =>
+      checkReviewQuality(r.content, r.projectName, r.projectCategory),
+    ),
   );
 }
