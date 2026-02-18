@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { verifyUsage } from '@/lib/usage-proof'
 
 export const dynamic = 'force-dynamic'
 
@@ -7,10 +8,10 @@ export const dynamic = 'force-dynamic'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { projectId, address, rating, content } = body
+    const { projectId, projectSlug, address, rating, content, skipProof } = body
 
-    if (!projectId || !address || !rating) {
-      return NextResponse.json({ error: 'projectId, address, and rating are required' }, { status: 400 })
+    if ((!projectId && !projectSlug) || !address || !rating) {
+      return NextResponse.json({ error: 'projectId/projectSlug, address, and rating are required' }, { status: 400 })
     }
 
     if (rating < 1 || rating > 5) {
@@ -26,10 +27,25 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Check project exists
-    const project = await prisma.project.findUnique({ where: { id: projectId } })
+    // Check project exists (support both id and slug)
+    const project = projectId
+      ? await prisma.project.findUnique({ where: { id: projectId } })
+      : await prisma.project.findFirst({ where: { OR: [{ slug: projectSlug }, { name: { equals: projectSlug, mode: 'insensitive' } }] } })
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+    }
+
+    // Verify on-chain usage proof (skip in dev/demo mode)
+    if (!skipProof && process.env.REQUIRE_USAGE_PROOF !== 'false') {
+      const proof = await verifyUsage(lowerAddress, project.address, project.category)
+      if (!proof.verified) {
+        return NextResponse.json({
+          error: 'Usage proof required',
+          message: 'You must have on-chain interaction with this project to write a review',
+          details: proof.details,
+          hint: `No transactions found between ${lowerAddress} and ${project.address}`,
+        }, { status: 403 })
+      }
     }
 
     // Deduct Scarab (optional — skip if no balance record)
