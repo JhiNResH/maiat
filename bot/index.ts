@@ -180,37 +180,78 @@ bot.command('score', async (ctx) => {
     include: {
       reviews: {
         orderBy: { createdAt: 'desc' },
-        take: 3,
+        take: 10,
         include: { reviewer: { select: { displayName: true } } }
       }
     }
   })
 
   if (!project) {
-    await ctx.reply(`❌ Project "${projectName}" not found.`)
+    await ctx.reply(`❌ Project "${projectName}" not found.\n\nTry /search ${projectName}`)
     return
   }
 
   // Calculate trust score (0-100)
   const trustScore = Math.round(project.avgRating * 20)
   const scoreEmoji = trustScore >= 80 ? '🟢' : trustScore >= 50 ? '🟡' : '🔴'
+  const risk = trustScore >= 80 ? 'Low' : trustScore >= 50 ? 'Medium' : 'High'
+  const cat = project.category === 'm/ai-agents' ? 'AI Agent' : project.category === 'm/defi' ? 'DeFi' : project.category
 
-  let msg = `${scoreEmoji} *${project.name}*\n\n`
-  msg += `Trust Score: *${trustScore}/100*\n`
-  msg += `Avg Rating: ${'⭐'.repeat(Math.round(project.avgRating))} (${project.avgRating.toFixed(1)})\n`
-  msg += `Reviews: ${project.reviewCount}\n`
-  msg += `Category: ${project.category}\n`
+  // Generate AI summary
+  await ctx.reply('🔍 Generating AI analysis...', { parse_mode: 'Markdown' })
+  
+  let aiSummary = ''
+  try {
+    const { GoogleGenerativeAI } = await import('@google/generative-ai')
+    const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY!)
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
+    
+    const type = project.category === 'm/ai-agents' ? 'AI agent' : 'DeFi protocol'
+    const context = [
+      `Project: ${project.name} (${type})`,
+      project.description ? `Description: ${project.description}` : '',
+      project.website ? `Website: ${project.website}` : '',
+      project.address ? `Contract: ${project.address}` : '',
+    ].filter(Boolean).join('\n')
 
-  if (project.reviews.length > 0) {
-    msg += `\n📝 *Latest reviews:*\n`
-    for (const r of project.reviews) {
-      msg += `• ${'⭐'.repeat(r.rating)} — "${r.content.slice(0, 80)}${r.content.length > 80 ? '...' : ''}" — _${r.reviewer.displayName}_\n`
+    let prompt: string
+    if (project.reviews.length === 0) {
+      prompt = `You are a crypto/DeFi analyst. Based on this project info, give a trust assessment in 2-3 sentences. Cover: what it does, strengths, risks. Be specific.\n\n${context}`
+    } else {
+      const reviewTexts = project.reviews.map(r => `${r.rating}/5: "${r.content}"`).join('\n')
+      prompt = `You are a crypto analyst. Summarize these reviews of "${project.name}" in 2-3 sentences. Be objective. Mention strengths and concerns.\n\n${context}\n\nReviews:\n${reviewTexts}`
     }
+    
+    const result = await model.generateContent(prompt)
+    aiSummary = result.response.text()
+  } catch (e) {
+    aiSummary = 'AI analysis temporarily unavailable.'
   }
 
-  msg += `\n💬 /review ${project.name} to add yours`
+  let msg = `${scoreEmoji} *${project.name}*\n\n`
+  msg += `📊 *Trust Score: ${trustScore}/100*\n`
+  msg += `⭐ Rating: ${project.avgRating.toFixed(1)}/5 (${project.reviewCount} reviews)\n`
+  msg += `🏷 Category: ${cat}\n`
+  msg += `⚠️ Risk Level: ${risk}\n`
+  if (project.website) msg += `🌐 ${project.website}\n`
+  if (project.address) msg += `📝 Contract: \`${project.address.slice(0, 10)}...${project.address.slice(-6)}\`\n`
+  
+  msg += `\n🤖 *AI Analysis:*\n_${aiSummary}_\n`
+  
+  if (project.reviews.length > 0) {
+    msg += `\n📝 *Latest Reviews:*\n`
+    for (const r of project.reviews.slice(0, 3)) {
+      const stars = '⭐'.repeat(r.rating)
+      const text = r.content.length > 60 ? r.content.slice(0, 57) + '...' : r.content
+      const author = r.reviewer.displayName || 'Anon'
+      msg += `• ${stars} "${text}" — _${author}_\n`
+    }
+  }
+  
+  msg += `\n💬 /review ${project.name} — Add your review`
 
-  await ctx.reply(msg, { parse_mode: 'Markdown' })
+  const keyboard = new InlineKeyboard().text('📝 Write Review', `review_${project.name}`)
+  await ctx.reply(msg, { parse_mode: 'Markdown', reply_markup: keyboard })
 })
 
 // ==========================================
