@@ -15,8 +15,8 @@ export default async function ProjectDetailPage({
   params: Promise<{ category: string; id: string }>
 }) {
   const { category, id } = await params
-  const project = await prisma.project.findUnique({
-    where: { id },
+  const project = await prisma.project.findFirst({
+    where: { OR: [{ slug: id }, { id }] },
     include: {
       reviews: {
         orderBy: { createdAt: 'desc' },

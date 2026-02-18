@@ -145,12 +145,12 @@ export default async function ProjectPage({ params }: Props) {
           {project.image ? (
             <img src={project.image} alt={project.name} className="w-10 h-10 rounded" />
           ) : (
-            <div className="w-10 h-10 rounded bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-sm font-bold font-mono text-gray-500 dark:text-gray-400 dark:text-gray-500">
+            <div className="w-10 h-10 rounded bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-sm font-bold font-mono text-gray-500 dark:text-gray-400">
               {project.name.slice(0, 2).toUpperCase()}
             </div>
           )}
           <h1 className="text-2xl font-bold font-mono text-gray-900 dark:text-gray-100">{project.name}</h1>
-          <span className="text-xs font-mono px-2 py-0.5 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-gray-500 dark:text-gray-400 dark:text-gray-500">{categoryLabel}</span>
+          <span className="text-xs font-mono px-2 py-0.5 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded text-gray-500 dark:text-gray-400">{categoryLabel}</span>
           <span className={`text-xs font-mono px-2 py-0.5 rounded ${riskColor}`}>Risk: {riskLevel}</span>
         </div>
 
@@ -159,7 +159,7 @@ export default async function ProjectPage({ params }: Props) {
           <div className="grid grid-cols-2 divide-x divide-gray-200">
             <div className="p-4 space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-xs font-mono text-gray-500 dark:text-gray-400 dark:text-gray-500">Trust Score:</span>
+                <span className="text-xs font-mono text-gray-500 dark:text-gray-400">Trust Score:</span>
                 <div className="flex items-center gap-2">
                   <div className={`w-1 h-5 rounded-full ${barColor}`} />
                   <span className={`text-2xl font-bold font-mono ${scoreColor}`}>{trustScore}</span>
@@ -167,25 +167,25 @@ export default async function ProjectPage({ params }: Props) {
                 </div>
               </div>
               <div className="flex justify-between">
-                <span className="text-xs font-mono text-gray-500 dark:text-gray-400 dark:text-gray-500">Avg Rating:</span>
+                <span className="text-xs font-mono text-gray-500 dark:text-gray-400">Avg Rating:</span>
                 <span className="text-sm font-mono text-gray-900 dark:text-gray-100">{'⭐'.repeat(Math.round(project.avgRating))} {project.avgRating.toFixed(1)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-xs font-mono text-gray-500 dark:text-gray-400 dark:text-gray-500">Total Reviews:</span>
+                <span className="text-xs font-mono text-gray-500 dark:text-gray-400">Total Reviews:</span>
                 <span className="text-sm font-mono text-gray-900 dark:text-gray-100">{project.reviewCount}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-xs font-mono text-gray-500 dark:text-gray-400 dark:text-gray-500">Sentiment:</span>
+                <span className="text-xs font-mono text-gray-500 dark:text-gray-400">Sentiment:</span>
                 <span className="text-sm font-mono text-gray-900 dark:text-gray-100">👍 {totalUpvotes} / 👎 {totalDownvotes}</span>
               </div>
             </div>
             <div className="p-4 space-y-3">
               <div className="flex justify-between">
-                <span className="text-xs font-mono text-gray-500 dark:text-gray-400 dark:text-gray-500">Contract:</span>
+                <span className="text-xs font-mono text-gray-500 dark:text-gray-400">Contract:</span>
                 <span className="text-xs font-mono text-blue-600">{project.address.length > 20 ? `${project.address.slice(0, 10)}...${project.address.slice(-6)}` : project.address}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-xs font-mono text-gray-500 dark:text-gray-400 dark:text-gray-500">Chain:</span>
+                <span className="text-xs font-mono text-gray-500 dark:text-gray-400">Chain:</span>
                 <span className="text-sm font-mono text-gray-900 dark:text-gray-100">{
                   project.category === 'm/ai-agents' ? 'Base (Virtuals)' :
                   ['PancakeSwap'].includes(project.name) ? 'BNB Chain' :
@@ -193,17 +193,17 @@ export default async function ProjectPage({ params }: Props) {
                 }</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-xs font-mono text-gray-500 dark:text-gray-400 dark:text-gray-500">Category:</span>
+                <span className="text-xs font-mono text-gray-500 dark:text-gray-400">Category:</span>
                 <span className="text-sm font-mono text-gray-900 dark:text-gray-100">{categoryLabel}</span>
               </div>
               {project.website && (
                 <div className="flex justify-between">
-                  <span className="text-xs font-mono text-gray-500 dark:text-gray-400 dark:text-gray-500">Website:</span>
+                  <span className="text-xs font-mono text-gray-500 dark:text-gray-400">Website:</span>
                   <a href={project.website} target="_blank" rel="noopener" className="text-xs font-mono text-blue-600 hover:underline">{project.website.replace('https://', '').replace('http://', '')}</a>
                 </div>
               )}
               <div className="flex justify-between">
-                <span className="text-xs font-mono text-gray-500 dark:text-gray-400 dark:text-gray-500">Status:</span>
+                <span className="text-xs font-mono text-gray-500 dark:text-gray-400">Status:</span>
                 <span className="text-xs font-mono px-2 py-0.5 bg-green-50 text-green-700 rounded">Active</span>
               </div>
             </div>
@@ -257,7 +257,7 @@ export default async function ProjectPage({ params }: Props) {
 
         {/* AI Analysis Summary */}
         <div className="bg-white dark:bg-[#1a1b23] border border-gray-200 dark:border-gray-700 rounded-md mb-4 p-4">
-          <h3 className="text-xs font-bold tracking-widest text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase font-mono mb-2 flex items-center gap-2">
+          <h3 className="text-xs font-bold tracking-widest text-gray-500 dark:text-gray-400 uppercase font-mono mb-2 flex items-center gap-2">
             <span>🤖 AI Analysis</span>
             <span className="text-xs font-normal text-gray-400 dark:text-gray-500">(Powered by Gemini)</span>
           </h3>
@@ -268,15 +268,15 @@ export default async function ProjectPage({ params }: Props) {
         <div className="grid grid-cols-2 gap-4 mb-4">
           {/* Distribution */}
           <div className="bg-white dark:bg-[#1a1b23] border border-gray-200 dark:border-gray-700 rounded-md p-4">
-            <h3 className="text-xs font-bold tracking-widest text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase font-mono mb-3">Rating Distribution</h3>
+            <h3 className="text-xs font-bold tracking-widest text-gray-500 dark:text-gray-400 uppercase font-mono mb-3">Rating Distribution</h3>
             <div className="space-y-1.5">
               {[5, 4, 3, 2, 1].map((star) => (
                 <div key={star} className="flex items-center gap-2">
-                  <span className="text-xs font-mono text-gray-500 dark:text-gray-400 dark:text-gray-500 w-6">{star}★</span>
+                  <span className="text-xs font-mono text-gray-500 dark:text-gray-400 w-6">{star}★</span>
                   <div className="flex-1 h-3 bg-gray-100 dark:bg-gray-800 rounded overflow-hidden">
                     <div className={`h-full rounded ${star >= 4 ? 'bg-green-500' : star === 3 ? 'bg-yellow-500' : 'bg-red-500'}`} style={{ width: `${(dist[star - 1] / maxDist) * 100}%` }} />
                   </div>
-                  <span className="text-xs font-mono text-gray-500 dark:text-gray-400 dark:text-gray-500 w-4 text-right">{dist[star - 1]}</span>
+                  <span className="text-xs font-mono text-gray-500 dark:text-gray-400 w-4 text-right">{dist[star - 1]}</span>
                 </div>
               ))}
             </div>
@@ -284,7 +284,7 @@ export default async function ProjectPage({ params }: Props) {
 
           {/* Trend Chart */}
           <div className="bg-white dark:bg-[#1a1b23] border border-gray-200 dark:border-gray-700 rounded-md p-4">
-            <h3 className="text-xs font-bold tracking-widest text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase font-mono mb-3">Rating Trend</h3>
+            <h3 className="text-xs font-bold tracking-widest text-gray-500 dark:text-gray-400 uppercase font-mono mb-3">Rating Trend</h3>
             {trendReviews.length < 2 ? (
               <div className="h-20 flex items-center justify-center text-xs font-mono text-gray-400 dark:text-gray-500">Need more reviews for trend</div>
             ) : (
@@ -315,7 +315,7 @@ export default async function ProjectPage({ params }: Props) {
         {/* Reviews */}
         <div className="bg-white dark:bg-[#1a1b23] border border-gray-200 dark:border-gray-700 rounded-md">
           <div className="px-4 py-2.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 flex items-center justify-between">
-            <h3 className="text-xs font-bold tracking-widest text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase font-mono">Reviews ({project.reviews.length})</h3>
+            <h3 className="text-xs font-bold tracking-widest text-gray-500 dark:text-gray-400 uppercase font-mono">Reviews ({project.reviews.length})</h3>
             <a href="https://t.me/MaiatBot" className="text-xs font-mono text-blue-600 hover:underline">+ Add Review</a>
           </div>
 
@@ -357,7 +357,7 @@ export default async function ProjectPage({ params }: Props) {
 
         {/* API Info */}
         <div className="bg-white dark:bg-[#1a1b23] border border-gray-200 dark:border-gray-700 rounded-md mt-4 p-4">
-          <h3 className="text-xs font-bold tracking-widest text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase font-mono mb-2">API Access</h3>
+          <h3 className="text-xs font-bold tracking-widest text-gray-500 dark:text-gray-400 uppercase font-mono mb-2">API Access</h3>
           <code className="text-xs font-mono text-gray-600 dark:text-gray-300 bg-gray-50 px-3 py-2 rounded block">
             GET /api/trust-score?project={project.name}
           </code>
