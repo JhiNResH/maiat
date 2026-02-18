@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { searchExternalAPIs } from '@/lib/coingecko'
+import { analyzeProject } from '@/app/actions/analyze'
 
 export const dynamic = 'force-dynamic'
 
@@ -65,6 +66,7 @@ export async function GET(request: NextRequest) {
 
     // If no projects found and autoCreate enabled, search external APIs
     let autoCreated = null
+    let aiAnalysis = null
     if (projects.length === 0 && autoCreate) {
       console.log(`[Maiat Search] No local match for "${rawQuery}", searching external APIs...`)
       const externalData = await searchExternalAPIs(rawQuery)
@@ -78,6 +80,13 @@ export async function GET(request: NextRequest) {
         const existingAddr = await prisma.project.findUnique({ where: { address } })
         
         if (!existingSlug && !existingAddr) {
+          // Auto-trigger AI analysis in background (don't block)
+          console.log(`[Maiat Search] Triggering AI analysis for: ${externalData.name}`)
+          const analysisPromise = analyzeProject(rawQuery).catch(err => {
+            console.error('[Maiat Search] AI analysis failed:', err)
+            return null
+          })
+          
           const newProject = await prisma.project.create({
             data: {
               address,
@@ -93,6 +102,12 @@ export async function GET(request: NextRequest) {
             }
           })
           
+          // Wait for AI analysis (with timeout)
+          aiAnalysis = await Promise.race([
+            analysisPromise,
+            new Promise(resolve => setTimeout(() => resolve(null), 8000)) // 8s timeout
+          ])
+          
           autoCreated = {
             id: newProject.id,
             address: newProject.address,
@@ -107,6 +122,9 @@ export async function GET(request: NextRequest) {
           }
           projects.push(autoCreated as any)
           console.log(`[Maiat Search] Auto-created: ${newProject.name} from ${externalData.source}`)
+          if (aiAnalysis) {
+            console.log(`[Maiat Search] AI analysis complete for ${externalData.name}`)
+          }
         }
       }
     }

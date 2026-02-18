@@ -45,7 +45,7 @@ model Project {
   id              String    @id @default(cuid())
   address         String    @unique // contract/protocol address or identifier
   name            String
-  slug            String    @unique @default("")
+  slug            String    @unique @default(cuid())
   description     String?
   image           String?   // Logo URL
   bannerImage     String?   // Banner/cover image
