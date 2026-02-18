@@ -242,29 +242,42 @@ async function performAIVerification(
 }
 
 /**
- * Record verification on Kite chain
- * In production, this would create an on-chain transaction
+ * Record verification on Kite chain — REAL on-chain transaction
  */
 async function recordOnKiteChain(
   reviewId: string,
   agentAddress: string,
   status: string
 ): Promise<string> {
-  // Mock transaction - in production:
-  // - Use viem/ethers to connect to Kite RPC
-  // - Call verification contract
-  // - Store verification proof on-chain
-  // - Return real tx hash
+  const { ethers } = await import('ethers')
   
-  const mockTxHash = `0x${Math.random().toString(16).slice(2, 66)}`
-  
-  console.log('[Kite Chain] Mock verification tx:', {
-    reviewId,
-    agentAddress,
-    status,
-    txHash: mockTxHash,
-    network: 'Kite Testnet (ChainID: 2368)'
+  const KITE_RPC = 'https://rpc-testnet.gokite.ai/'
+  const privateKey = process.env.PRIVATE_KEY
+  if (!privateKey) throw new Error('PRIVATE_KEY not set')
+
+  const provider = new ethers.JsonRpcProvider(KITE_RPC)
+  const wallet = new ethers.Wallet(privateKey, provider)
+
+  // Encode verification data as calldata in a self-transfer
+  const verificationData = ethers.toUtf8Bytes(
+    JSON.stringify({
+      type: 'maiat-review-verification',
+      reviewId,
+      agentAddress,
+      status,
+      timestamp: Date.now(),
+    })
+  )
+
+  // Send a 0-value tx with verification data
+  const tx = await wallet.sendTransaction({
+    to: wallet.address, // self-transfer
+    value: 0,
+    data: ethers.hexlify(verificationData),
   })
-  
-  return mockTxHash
+
+  console.log('[Kite Chain] Real verification tx:', tx.hash)
+  await tx.wait()
+
+  return tx.hash
 }
