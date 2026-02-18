@@ -15,6 +15,7 @@
 
 import { Bot, Context, session, SessionFlavor, InlineKeyboard } from 'grammy'
 import { PrismaClient } from '@prisma/client'
+import { analyzeReview } from './analyze'
 
 // Session data for multi-step review flow
 interface SessionData {
@@ -49,14 +50,14 @@ bot.command('start', async (ctx) => {
 The trust score layer for crypto & AI agents.
 
 *What you can do:*
-/review \\<project\\> — Rate a project
-/score \\<project\\> — Check trust score  
-/search \\<query\\> — Find projects
+/review <project> — Rate a project
+/score <project> — Check trust score
+/search <query> — Find projects
 /myscarab — Check your Scarab balance
 
-_Every review makes the ecosystem safer\\._`
+_Every review makes the ecosystem safer._`
 
-  await ctx.reply(welcome, { parse_mode: 'MarkdownV2' })
+  await ctx.reply(welcome, { parse_mode: 'Markdown' })
 
   // Handle deep link for review
   if (payload && payload.startsWith('review_')) {
@@ -141,6 +142,22 @@ bot.on('message:text', async (ctx) => {
   if (!telegramId) return
 
   try {
+    // AI quality check
+    await ctx.reply('🔍 Analyzing your review...')
+    const analysis = await analyzeReview(
+      ctx.session.projectName || 'Unknown',
+      ctx.session.rating,
+      content
+    )
+
+    if (analysis.quality === 'spam' || analysis.score < 20) {
+      ctx.session.step = 'idle'
+      await ctx.reply(
+        `❌ Review rejected: ${analysis.reason}\n\nPlease write a more specific review about your experience.`
+      )
+      return
+    }
+
     // Get or create user by telegram ID
     const address = `tg:${telegramId}`
     let user = await prisma.user.findUnique({ where: { address } })
@@ -199,19 +216,24 @@ bot.on('message:text', async (ctx) => {
       }
     })
 
+    const projectName = ctx.session.projectName || 'Project'
+
     // Reset session
     ctx.session.step = 'idle'
     ctx.session.projectId = undefined
     ctx.session.projectName = undefined
     ctx.session.rating = undefined
 
+    const qualityEmoji = analysis.quality === 'high' ? '🟢' : analysis.quality === 'medium' ? '🟡' : '🔴'
+
     await ctx.reply(
       `✅ *Review submitted!*\n\n` +
-      `Project: ${reviews[0] ? ctx.session.projectName || 'Project' : 'Project'}\n` +
+      `Project: ${projectName}\n` +
       `Rating: ${'⭐'.repeat(review.rating)}\n` +
-      `Review: "${content}"\n\n` +
+      `Review: "${content}"\n` +
+      `Quality: ${qualityEmoji} ${analysis.score}/100\n\n` +
       `🪲 +${scarabReward} Scarab earned!\n\n` +
-      `_Your review helps make crypto safer._`,
+      `_${analysis.reason}_`,
       { parse_mode: 'Markdown' }
     )
 
