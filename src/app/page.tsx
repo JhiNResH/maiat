@@ -16,15 +16,15 @@ export default async function HomePage() {
     : 0
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-[#0f1117]">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-6">
+      <header className="bg-white dark:bg-[#1a1b23] border-b border-gray-200 dark:border-gray-700 px-6 py-3 flex items-center gap-6">
         <h1 className="text-xl font-bold tracking-tight font-mono">MAIAT</h1>
         <div className="flex-1 max-w-xl">
           <input
             type="text"
             placeholder="Search projects, agents, protocols..."
-            className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm font-mono focus:outline-none focus:border-gray-500 bg-gray-50"
+            className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm font-mono focus:outline-none focus:border-gray-500 bg-gray-50 dark:bg-[#0f1117]"
           />
         </div>
         <a href="https://t.me/MaiatBot" className="text-xs font-mono text-blue-600 hover:underline">@MaiatBot</a>
@@ -32,43 +32,43 @@ export default async function HomePage() {
 
       <main className="px-6 py-4 max-w-5xl mx-auto">
         {/* Stats Bar */}
-        <div className="bg-white border border-gray-200 rounded-md mb-4 p-3">
+        <div className="bg-white dark:bg-[#1a1b23] border border-gray-200 dark:border-gray-700 rounded-md mb-4 p-3">
           <div className="flex items-center gap-8 text-xs font-mono">
             <div>
-              <span className="text-gray-500">Projects: </span>
-              <span className="font-bold text-gray-900">{totalProjects}</span>
+              <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500">Projects: </span>
+              <span className="font-bold text-gray-900 dark:text-gray-100">{totalProjects}</span>
             </div>
             <div>
-              <span className="text-gray-500">Total Reviews: </span>
-              <span className="font-bold text-gray-900">{totalReviews}</span>
+              <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500">Total Reviews: </span>
+              <span className="font-bold text-gray-900 dark:text-gray-100">{totalReviews}</span>
             </div>
             <div>
-              <span className="text-gray-500">Avg Trust Score: </span>
+              <span className="text-gray-500 dark:text-gray-400 dark:text-gray-500">Avg Trust Score: </span>
               <span className="font-bold text-green-600">{avgTrustScore}/100</span>
             </div>
             <div className="ml-auto">
-              <span className="text-gray-400">The trust score layer for agentic commerce</span>
+              <span className="text-gray-400 dark:text-gray-500">The trust score layer for agentic commerce</span>
             </div>
           </div>
         </div>
 
         {/* Table */}
-        <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
-          <div className="px-4 py-2.5 border-b border-gray-200 bg-gray-50">
-            <span className="text-xs font-bold tracking-widest text-gray-500 uppercase font-mono">
+        <div className="bg-white dark:bg-[#1a1b23] border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0f1117]">
+            <span className="text-xs font-bold tracking-widest text-gray-500 dark:text-gray-400 dark:text-gray-500 uppercase font-mono">
               All Projects ({totalProjects})
             </span>
           </div>
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left px-4 py-2 text-xs font-bold text-gray-400 uppercase font-mono">#</th>
-                <th className="text-left px-4 py-2 text-xs font-bold text-gray-400 uppercase font-mono">Project</th>
-                <th className="text-left px-4 py-2 text-xs font-bold text-gray-400 uppercase font-mono">Category</th>
-                <th className="text-left px-4 py-2 text-xs font-bold text-gray-400 uppercase font-mono">Trust Score</th>
-                <th className="text-left px-4 py-2 text-xs font-bold text-gray-400 uppercase font-mono">Reviews</th>
-                <th className="text-left px-4 py-2 text-xs font-bold text-gray-400 uppercase font-mono">Rating</th>
-                <th className="text-left px-4 py-2 text-xs font-bold text-gray-400 uppercase font-mono">Risk</th>
+              <tr className="border-b border-gray-200 dark:border-gray-700">
+                <th className="text-left px-4 py-2 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase font-mono">#</th>
+                <th className="text-left px-4 py-2 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase font-mono">Project</th>
+                <th className="text-left px-4 py-2 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase font-mono">Category</th>
+                <th className="text-left px-4 py-2 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase font-mono">Trust Score</th>
+                <th className="text-left px-4 py-2 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase font-mono">Reviews</th>
+                <th className="text-left px-4 py-2 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase font-mono">Rating</th>
+                <th className="text-left px-4 py-2 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase font-mono">Risk</th>
               </tr>
             </thead>
             <tbody>
@@ -82,13 +82,13 @@ export default async function HomePage() {
 
                 return (
                   <tr key={project.id} className="border-b border-gray-50 hover:bg-blue-50/30 transition-colors">
-                    <td className="px-4 py-2.5 text-xs font-mono text-gray-400">{i + 1}</td>
+                    <td className="px-4 py-2.5 text-xs font-mono text-gray-400 dark:text-gray-500">{i + 1}</td>
                     <td className="px-4 py-2.5">
-                      <Link href={`/project/${project.id}`} className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:underline font-mono">
+                      <Link href={`/project/${(project as any).slug || project.id}`} className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:underline font-mono">
                         {project.image ? (
                           <img src={project.image} alt="" className="w-5 h-5 rounded" />
                         ) : (
-                          <div className="w-5 h-5 rounded bg-gray-200 flex items-center justify-center text-[8px] font-bold text-gray-500">
+                          <div className="w-5 h-5 rounded bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-[8px] font-bold text-gray-500 dark:text-gray-400 dark:text-gray-500">
                             {project.name.slice(0, 2)}
                           </div>
                         )}
@@ -96,7 +96,7 @@ export default async function HomePage() {
                       </Link>
                     </td>
                     <td className="px-4 py-2.5">
-                      <span className="text-xs font-mono px-1.5 py-0.5 bg-gray-100 rounded text-gray-600">{categoryLabel}</span>
+                      <span className="text-xs font-mono px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-gray-600 dark:text-gray-300">{categoryLabel}</span>
                     </td>
                     <td className="px-4 py-2.5">
                       <div className="flex items-center gap-1.5">
@@ -104,8 +104,8 @@ export default async function HomePage() {
                         <span className={`text-sm font-bold font-mono ${scoreColor}`}>{trustScore}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-2.5 text-sm text-gray-600 font-mono">{project.reviewCount}</td>
-                    <td className="px-4 py-2.5 text-sm text-gray-600 font-mono">{project.avgRating.toFixed(1)}</td>
+                    <td className="px-4 py-2.5 text-sm text-gray-600 dark:text-gray-300 font-mono">{project.reviewCount}</td>
+                    <td className="px-4 py-2.5 text-sm text-gray-600 dark:text-gray-300 font-mono">{project.avgRating.toFixed(1)}</td>
                     <td className="px-4 py-2.5">
                       <span className={`text-xs font-mono ${riskColor}`}>{riskLevel}</span>
                     </td>
@@ -117,7 +117,7 @@ export default async function HomePage() {
         </div>
 
         {/* Footer */}
-        <div className="mt-4 text-center text-xs font-mono text-gray-400 py-4">
+        <div className="mt-4 text-center text-xs font-mono text-gray-400 dark:text-gray-500 py-4">
           Maiat — Verified review layer for agentic commerce · 
           <a href="https://t.me/MaiatBot" className="text-blue-600 hover:underline ml-1">Review via Telegram</a> · 
           <span className="ml-1">API: GET /api/trust-score?project=NAME</span>

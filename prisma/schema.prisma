@@ -44,6 +44,7 @@ model Project {
   id              String    @id @default(cuid())
   address         String    @unique // contract/protocol address or identifier
   name            String
+  slug            String    @unique @default("")
   description     String?
   image           String?   // Logo URL
   bannerImage     String?   // Banner/cover image
@@ -64,6 +65,7 @@ model Project {
   // Relations
   reviews         Review[]
   
+  @@index([slug])
   @@index([address])
   @@index([category])
   @@index([status])
