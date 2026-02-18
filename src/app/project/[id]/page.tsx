@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { getMarketData, formatNumber, formatPrice } from '@/lib/market-data'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
@@ -97,7 +98,10 @@ export default async function ProjectPage({ params }: Props) {
   const maxDist = Math.max(...dist, 1)
 
   // AI Summary
-  const aiSummary = await getAISummary(project.name, project.reviews, project.category, project.description || '', project.website || '', project.address)
+  const [aiSummary, marketData] = await Promise.all([
+    getAISummary(project.name, project.reviews, project.category, project.description || '', project.website || '', project.address),
+    getMarketData(project.name, project.address, project.category),
+  ])
 
   // Rating trend (last 10 reviews, oldest to newest)
   const trendReviews = [...project.reviews].reverse().slice(-10)
@@ -195,6 +199,51 @@ export default async function ProjectPage({ params }: Props) {
                 <span className="text-xs font-mono px-2 py-0.5 bg-green-50 text-green-700 rounded">Active</span>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Market Data */}
+        <div className="bg-white dark:bg-[#1a1b23] border border-gray-200 dark:border-gray-700 rounded-md mb-4">
+          <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-xs font-bold tracking-widest text-gray-500 dark:text-gray-400 uppercase font-mono">📊 Market Data</h3>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-gray-100 dark:divide-gray-700">
+            <div className="p-3 text-center">
+              <div className="text-xs font-mono text-gray-400 mb-1">Price</div>
+              <div className="text-sm font-bold font-mono text-gray-900 dark:text-gray-100">
+                {formatPrice(marketData.price)}
+                {marketData.priceChange24h ? (
+                  <span className={`ml-1 text-xs ${marketData.priceChange24h >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {marketData.priceChange24h >= 0 ? '+' : ''}{marketData.priceChange24h.toFixed(1)}%
+                  </span>
+                ) : null}
+              </div>
+            </div>
+            <div className="p-3 text-center">
+              <div className="text-xs font-mono text-gray-400 mb-1">Market Cap</div>
+              <div className="text-sm font-bold font-mono text-gray-900 dark:text-gray-100">{formatNumber(marketData.marketCap || marketData.fdv)}</div>
+            </div>
+            <div className="p-3 text-center">
+              <div className="text-xs font-mono text-gray-400 mb-1">{marketData.tvl ? 'TVL' : 'Liquidity'}</div>
+              <div className="text-sm font-bold font-mono text-gray-900 dark:text-gray-100">{formatNumber(marketData.tvl || marketData.liquidity)}</div>
+            </div>
+            <div className="p-3 text-center">
+              <div className="text-xs font-mono text-gray-400 mb-1">24h Volume</div>
+              <div className="text-sm font-bold font-mono text-gray-900 dark:text-gray-100">{formatNumber(marketData.volume24h)}</div>
+            </div>
+          </div>
+          <div className="px-4 py-2 border-t border-gray-100 dark:border-gray-700 flex items-center gap-4 text-xs font-mono">
+            <span className="flex items-center gap-1">
+              {marketData.audited ? (
+                <><span className="text-green-600">✅</span> Audited</>
+              ) : (
+                <><span className="text-yellow-600">⚠️</span> Not audited</>
+              )}
+            </span>
+            {marketData.dexUrl && (
+              <a href={marketData.dexUrl} target="_blank" rel="noopener" className="text-blue-600 hover:underline">DEXScreener ↗</a>
+            )}
+            <span className="ml-auto text-gray-400">Data: DEXScreener · DeFiLlama · CoinGecko</span>
           </div>
         </div>
 
