@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { calculateTrustScore } from '@/lib/trust-score'
 import { getMarketData, formatNumber, formatPrice } from '@/lib/market-data'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
@@ -15,7 +16,7 @@ export async function generateMetadata({ params }: Props) {
     where: { OR: [{ slug: id }, { id }] }
   })
   if (!project) return { title: 'Not Found | Maiat' }
-  const trustScore = Math.round(project.avgRating * 20)
+  const trustScore = calculateTrustScore(project.name, project.category, project.avgRating, project.reviewCount)
   return {
     title: `${project.name} Trust Score & Reviews | Maiat`,
     description: `${project.name} has a trust score of ${trustScore}/100 based on ${project.reviewCount} verified reviews on Maiat.`,
@@ -86,7 +87,7 @@ export default async function ProjectPage({ params }: Props) {
 
   if (!project) notFound()
 
-  const trustScore = Math.round(project.avgRating * 20)
+  const trustScore = calculateTrustScore(project.name, project.category, project.avgRating, project.reviewCount)
   const scoreColor = trustScore >= 80 ? 'text-green-600' : trustScore >= 50 ? 'text-yellow-600' : 'text-red-600'
   const barColor = trustScore >= 80 ? 'bg-green-500' : trustScore >= 50 ? 'bg-yellow-500' : 'bg-red-500'
   const riskLevel = trustScore >= 80 ? 'Low' : trustScore >= 50 ? 'Medium' : 'High'

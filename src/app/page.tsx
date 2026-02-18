@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { calculateTrustScore } from '@/lib/trust-score'
 import Link from 'next/link'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { SearchBar } from '@/components/SearchBar'
@@ -22,7 +23,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
   const totalReviews = allProjects.reduce((sum, p) => sum + p.reviewCount, 0)
   const totalProjects = allProjects.length
   const avgTrustScore = allProjects.length > 0
-    ? Math.round(allProjects.reduce((sum, p) => sum + p.avgRating * 20, 0) / allProjects.length)
+    ? Math.round(allProjects.reduce((sum, p) => sum + calculateTrustScore(p.name, p.category, p.avgRating, p.reviewCount), 0) / allProjects.length)
     : 0
 
   return (
@@ -85,7 +86,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             </thead>
             <tbody>
               {allProjects.map((project, i) => {
-                const trustScore = Math.round(project.avgRating * 20)
+                const trustScore = calculateTrustScore(project.name, project.category, project.avgRating, project.reviewCount)
                 const scoreColor = trustScore >= 80 ? 'text-green-600' : trustScore >= 50 ? 'text-yellow-600' : 'text-red-600'
                 const barColor = trustScore >= 80 ? 'bg-green-500' : trustScore >= 50 ? 'bg-yellow-500' : 'bg-red-500'
                 const riskLevel = trustScore >= 80 ? 'Low' : trustScore >= 50 ? 'Medium' : 'High'
