@@ -22,12 +22,16 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <script dangerouslySetInnerHTML={{ __html: `
-        if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-          document.documentElement.classList.add('dark')
-        }
-      `}} />
       <head>
+        <script async dangerouslySetInnerHTML={{ __html: `
+          (function(){
+            var t = localStorage.getItem('theme');
+            if (t === 'light') return;
+            if (t === 'dark' || window.matchMedia('(prefers-color-scheme: dark)').matches) {
+              document.documentElement.classList.add('dark');
+            }
+          })();
+        `}} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link 

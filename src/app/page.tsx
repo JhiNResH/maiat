@@ -1,5 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -18,16 +19,22 @@ export default async function HomePage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-[#0f1117]">
       {/* Header */}
-      <header className="bg-white dark:bg-[#1a1b23] border-b border-gray-200 dark:border-gray-700 px-6 py-3 flex items-center gap-6">
-        <h1 className="text-xl font-bold tracking-tight font-mono">MAIAT</h1>
-        <div className="flex-1 max-w-xl">
+      <header className="bg-white dark:bg-[#1a1b23] border-b border-gray-200 dark:border-gray-700 px-6 py-3 flex items-center">
+        <div className="flex items-center gap-2 shrink-0">
+          <img src="/maiat-rmbg.png" alt="MAIAT" className="w-8 h-8" />
+          <h1 className="text-xl font-bold tracking-tight font-mono text-gray-900 dark:text-gray-100">MAIAT</h1>
+        </div>
+        <div className="flex-1 flex justify-center px-8">
           <input
             type="text"
             placeholder="Search projects, agents, protocols..."
-            className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm font-mono focus:outline-none focus:border-gray-500 bg-gray-50 dark:bg-[#0f1117]"
+            className="w-full max-w-xl px-3 py-1.5 border border-gray-300 rounded text-sm font-mono focus:outline-none focus:border-gray-500 bg-gray-50 dark:bg-[#0f1117]"
           />
         </div>
-        <a href="https://t.me/MaiatBot" className="text-xs font-mono text-blue-600 hover:underline">@MaiatBot</a>
+        <div className="flex items-center gap-3 shrink-0">
+          <ThemeToggle />
+          <a href="https://t.me/MaiatBot" className="text-xs font-mono text-blue-600 hover:underline">@MaiatBot</a>
+        </div>
       </header>
 
       <main className="px-6 py-4 max-w-5xl mx-auto">
@@ -84,7 +91,7 @@ export default async function HomePage() {
                   <tr key={project.id} className="border-b border-gray-50 hover:bg-blue-50/30 transition-colors">
                     <td className="px-4 py-2.5 text-xs font-mono text-gray-400 dark:text-gray-500">{i + 1}</td>
                     <td className="px-4 py-2.5">
-                      <Link href={`/project/${(project as any).slug || project.id}`} className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:underline font-mono">
+                      <Link href={`/${project.category === 'm/ai-agents' ? 'ai-agent' : 'defi'}/${(project as any).slug || project.id}`} className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:underline font-mono">
                         {project.image ? (
                           <img src={project.image} alt="" className="w-5 h-5 rounded" />
                         ) : (

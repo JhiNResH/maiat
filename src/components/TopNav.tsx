@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation'
 import { Search, SquarePen } from 'lucide-react'
 import { usePrivy } from '@privy-io/react-auth'
 import { SearchModal } from './search/SearchModal'
+import { ThemeToggle } from './ThemeToggle'
 
 export function TopNav() {
   const pathname = usePathname()
@@ -26,7 +27,7 @@ export function TopNav() {
   }, [])
 
   return (
-    <header className="sticky top-0 z-50 bg-[#0a0a0b]/80 backdrop-blur-xl border-b border-[#1f1f23] h-[65px]">
+    <header className="sticky top-0 z-50 bg-[var(--bg-primary)]/80 backdrop-blur-xl border-b border-[var(--border)] h-[65px]">
       <div className="h-full px-6 flex items-center justify-between">
         {/* Left: Logo */}
         <div className="flex items-center gap-10">
@@ -70,6 +71,15 @@ export function TopNav() {
 
         {/* Right: Actions */}
         <div className="flex items-center gap-3">
+          <ThemeToggle />
+          {/* API Docs */}
+          <Link
+            href="/docs"
+            className="hidden sm:flex items-center px-3 py-2 rounded-lg text-[13px] font-medium text-[#adadb0] hover:text-white hover:bg-[#1a1a1d] transition-colors"
+          >
+            API Docs
+          </Link>
+
           {/* Write Review Button */}
           <Link
             href="/review"

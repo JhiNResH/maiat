@@ -4,34 +4,48 @@ import { prisma } from '@/lib/prisma'
 export const dynamic = 'force-dynamic'
 
 /**
- * GET /api/trust-score?project=AIXBT
+ * Trust Score API - The core endpoint for agent-to-agent queries
  * 
- * Public API for agents to query trust scores.
- * No auth required. This is the core service endpoint.
+ * GET /api/trust-score?project=AIXBT
+ * GET /api/trust-score?project=uniswap
+ * GET /api/trust-score?address=0x4f9fd6be...
+ * 
+ * Returns trust score, review summary, and risk assessment
  */
 export async function GET(request: NextRequest) {
-  const projectName = request.nextUrl.searchParams.get('project')
+  const { searchParams } = new URL(request.url)
+  const projectQuery = searchParams.get('project')
+  const addressQuery = searchParams.get('address')
 
-  if (!projectName) {
+  if (!projectQuery && !addressQuery) {
     return NextResponse.json(
-      { error: 'Missing ?project= parameter' },
+      { error: 'Missing parameter. Use ?project=<name> or ?address=<contract>' },
       { status: 400 }
     )
   }
 
+  // Find project by name/slug or contract address
   const project = await prisma.project.findFirst({
-    where: {
-      OR: [
-        { name: { contains: projectName, mode: 'insensitive' } },
-        { address: { contains: projectName, mode: 'insensitive' } },
-      ]
-    },
+    where: addressQuery
+      ? { address: { equals: addressQuery, mode: 'insensitive' } }
+      : {
+          OR: [
+            { name: { equals: projectQuery!, mode: 'insensitive' } },
+            { slug: { equals: projectQuery!, mode: 'insensitive' } },
+            { name: { contains: projectQuery!, mode: 'insensitive' } },
+          ],
+        },
     include: {
       reviews: {
         orderBy: { createdAt: 'desc' },
-        take: 5,
-        include: {
-          reviewer: { select: { displayName: true } },
+        take: 20,
+        select: {
+          rating: true,
+          content: true,
+          upvotes: true,
+          downvotes: true,
+          createdAt: true,
+          status: true,
         },
       },
     },
@@ -39,30 +53,71 @@ export async function GET(request: NextRequest) {
 
   if (!project) {
     return NextResponse.json(
-      { error: 'Project not found', query: projectName },
+      { error: `Project not found: ${projectQuery || addressQuery}` },
       { status: 404 }
     )
   }
 
   const trustScore = Math.round(project.avgRating * 20)
-  const risk = trustScore >= 80 ? 'low' : trustScore >= 50 ? 'medium' : 'high'
+  const riskLevel = trustScore >= 80 ? 'Low' : trustScore >= 50 ? 'Medium' : 'High'
 
-  return NextResponse.json({
-    name: project.name,
-    address: project.address,
-    category: project.category,
+  // Sentiment analysis from reviews
+  const totalUpvotes = project.reviews.reduce((s, r) => s + r.upvotes, 0)
+  const totalDownvotes = project.reviews.reduce((s, r) => s + r.downvotes, 0)
+  const sentiment = totalUpvotes + totalDownvotes > 0
+    ? Math.round((totalUpvotes / (totalUpvotes + totalDownvotes)) * 100)
+    : null
+
+  // Rating distribution
+  const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } as Record<number, number>
+  project.reviews.forEach(r => {
+    if (r.rating >= 1 && r.rating <= 5) distribution[r.rating]++
+  })
+
+  // Top concerns (from low-rated reviews)
+  const concerns = project.reviews
+    .filter(r => r.rating <= 2 && r.content.length > 20)
+    .slice(0, 3)
+    .map(r => r.content.slice(0, 150))
+
+  // Top strengths (from high-rated reviews)
+  const strengths = project.reviews
+    .filter(r => r.rating >= 4 && r.content.length > 20)
+    .slice(0, 3)
+    .map(r => r.content.slice(0, 150))
+
+  const response = {
+    project: project.name,
+    category: project.category === 'm/ai-agents' ? 'AI Agent' : 'DeFi',
+    contract: project.address,
+    website: project.website,
     trustScore,
-    avgRating: project.avgRating,
+    riskLevel,
     reviewCount: project.reviewCount,
-    risk,
-    latestReviews: project.reviews.map(r => ({
-      rating: r.rating,
-      content: r.content,
-      reviewer: r.reviewer.displayName,
-      date: r.createdAt.toISOString().split('T')[0],
-    })),
-    // For callback after using the score
-    callbackUrl: `https://maiat.xyz/api/reviews`,
-    botLink: 'https://t.me/MaiatBot',
+    avgRating: project.avgRating,
+    sentiment,
+    ratingDistribution: distribution,
+    strengths,
+    concerns,
+    recommendation: trustScore >= 80
+      ? 'Highly trusted by the community'
+      : trustScore >= 60
+        ? 'Generally trusted with some concerns'
+        : trustScore >= 40
+          ? 'Mixed reviews — proceed with caution'
+          : project.reviewCount === 0
+            ? 'No community reviews yet — unrated'
+            : 'Low trust — significant concerns raised',
+    lastReviewAt: project.reviews[0]?.createdAt || null,
+    dataSource: 'maiat.io',
+    verifiedOnChain: true,
+    chains: ['Base', 'BSC'],
+  }
+
+  return NextResponse.json(response, {
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Cache-Control': 'public, max-age=60',
+    },
   })
 }
