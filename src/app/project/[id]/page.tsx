@@ -182,7 +182,11 @@ export default async function ProjectPage({ params }: Props) {
               </div>
               <div className="flex justify-between">
                 <span className="text-xs font-mono text-gray-500 dark:text-gray-400 dark:text-gray-500">Chain:</span>
-                <span className="text-sm font-mono text-gray-900 dark:text-gray-100">Base / BSC</span>
+                <span className="text-sm font-mono text-gray-900 dark:text-gray-100">{
+                  project.category === 'm/ai-agents' ? 'Base (Virtuals)' :
+                  ['PancakeSwap'].includes(project.name) ? 'BNB Chain' :
+                  'Ethereum'
+                }</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-xs font-mono text-gray-500 dark:text-gray-400 dark:text-gray-500">Category:</span>
