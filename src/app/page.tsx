@@ -5,66 +5,103 @@ export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
 export default async function HomePage() {
-  const projects = await prisma.project.findMany({
+  const allProjects = await prisma.project.findMany({
     orderBy: { reviewCount: 'desc' },
-    where: { status: 'approved' },
   })
 
-  // Fallback: if no approved, show all
-  const allProjects = projects.length > 0 ? projects : await prisma.project.findMany({
-    orderBy: { reviewCount: 'desc' },
-  })
+  const totalReviews = allProjects.reduce((sum, p) => sum + p.reviewCount, 0)
+  const totalProjects = allProjects.length
+  const avgTrustScore = allProjects.length > 0
+    ? Math.round(allProjects.reduce((sum, p) => sum + p.avgRating * 20, 0) / allProjects.length)
+    : 0
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="border-b border-gray-200 px-6 py-4 flex items-center gap-6">
-        <h1 className="text-2xl font-bold tracking-tight font-mono">MAIAT</h1>
-        <div className="flex-1 max-w-2xl">
+      <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-6">
+        <h1 className="text-xl font-bold tracking-tight font-mono">MAIAT</h1>
+        <div className="flex-1 max-w-xl">
           <input
             type="text"
-            placeholder="Search projects..."
-            className="w-full px-4 py-2 border border-gray-300 rounded-md text-sm font-mono focus:outline-none focus:border-gray-500"
+            placeholder="Search projects, agents, protocols..."
+            className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm font-mono focus:outline-none focus:border-gray-500 bg-gray-50"
           />
         </div>
+        <a href="https://t.me/MaiatBot" className="text-xs font-mono text-blue-600 hover:underline">@MaiatBot</a>
       </header>
 
-      {/* Table */}
-      <main className="px-6 py-6">
-        <div className="border border-gray-200 rounded-md overflow-hidden">
+      <main className="px-6 py-4 max-w-5xl mx-auto">
+        {/* Stats Bar */}
+        <div className="bg-white border border-gray-200 rounded-md mb-4 p-3">
+          <div className="flex items-center gap-8 text-xs font-mono">
+            <div>
+              <span className="text-gray-500">Projects: </span>
+              <span className="font-bold text-gray-900">{totalProjects}</span>
+            </div>
+            <div>
+              <span className="text-gray-500">Total Reviews: </span>
+              <span className="font-bold text-gray-900">{totalReviews}</span>
+            </div>
+            <div>
+              <span className="text-gray-500">Avg Trust Score: </span>
+              <span className="font-bold text-green-600">{avgTrustScore}/100</span>
+            </div>
+            <div className="ml-auto">
+              <span className="text-gray-400">The trust score layer for agentic commerce</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Table */}
+        <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-gray-200 bg-gray-50">
+            <span className="text-xs font-bold tracking-widest text-gray-500 uppercase font-mono">
+              All Projects ({totalProjects})
+            </span>
+          </div>
           <table className="w-full">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="text-left px-4 py-3 text-xs font-bold tracking-widest text-gray-500 uppercase font-mono">Project Name</th>
-                <th className="text-left px-4 py-3 text-xs font-bold tracking-widest text-gray-500 uppercase font-mono">Category</th>
-                <th className="text-left px-4 py-3 text-xs font-bold tracking-widest text-gray-500 uppercase font-mono">Trust Score</th>
-                <th className="text-left px-4 py-3 text-xs font-bold tracking-widest text-gray-500 uppercase font-mono">Reviews</th>
-                <th className="text-left px-4 py-3 text-xs font-bold tracking-widest text-gray-500 uppercase font-mono">Avg Rating</th>
+              <tr className="border-b border-gray-200">
+                <th className="text-left px-4 py-2 text-xs font-bold text-gray-400 uppercase font-mono">#</th>
+                <th className="text-left px-4 py-2 text-xs font-bold text-gray-400 uppercase font-mono">Project</th>
+                <th className="text-left px-4 py-2 text-xs font-bold text-gray-400 uppercase font-mono">Category</th>
+                <th className="text-left px-4 py-2 text-xs font-bold text-gray-400 uppercase font-mono">Trust Score</th>
+                <th className="text-left px-4 py-2 text-xs font-bold text-gray-400 uppercase font-mono">Reviews</th>
+                <th className="text-left px-4 py-2 text-xs font-bold text-gray-400 uppercase font-mono">Rating</th>
+                <th className="text-left px-4 py-2 text-xs font-bold text-gray-400 uppercase font-mono">Risk</th>
               </tr>
             </thead>
             <tbody>
-              {allProjects.map((project) => {
+              {allProjects.map((project, i) => {
                 const trustScore = Math.round(project.avgRating * 20)
                 const scoreColor = trustScore >= 80 ? 'text-green-600' : trustScore >= 50 ? 'text-yellow-600' : 'text-red-600'
                 const barColor = trustScore >= 80 ? 'bg-green-500' : trustScore >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+                const riskLevel = trustScore >= 80 ? 'Low' : trustScore >= 50 ? 'Medium' : 'High'
+                const riskColor = trustScore >= 80 ? 'text-green-600' : trustScore >= 50 ? 'text-yellow-600' : 'text-red-600'
                 const categoryLabel = project.category === 'm/ai-agents' ? 'AI Agent' : project.category === 'm/defi' ? 'DeFi' : project.category
 
                 return (
-                  <tr key={project.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-4">
-                      <Link href={`/project/${project.id}`} className="text-sm font-medium text-gray-900 hover:text-black font-mono">
+                  <tr key={project.id} className="border-b border-gray-50 hover:bg-blue-50/30 transition-colors">
+                    <td className="px-4 py-2.5 text-xs font-mono text-gray-400">{i + 1}</td>
+                    <td className="px-4 py-2.5">
+                      <Link href={`/project/${project.id}`} className="text-sm font-medium text-blue-600 hover:underline font-mono">
                         {project.name}
                       </Link>
                     </td>
-                    <td className="px-4 py-4 text-sm text-gray-500 font-mono">{categoryLabel}</td>
-                    <td className="px-4 py-4">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-1 h-6 rounded-full ${barColor}`} />
+                    <td className="px-4 py-2.5">
+                      <span className="text-xs font-mono px-1.5 py-0.5 bg-gray-100 rounded text-gray-600">{categoryLabel}</span>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center gap-1.5">
+                        <div className={`w-0.5 h-4 rounded-full ${barColor}`} />
                         <span className={`text-sm font-bold font-mono ${scoreColor}`}>{trustScore}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-4 text-sm text-gray-600 font-mono">{project.reviewCount}</td>
-                    <td className="px-4 py-4 text-sm text-gray-600 font-mono">{project.avgRating.toFixed(1)}</td>
+                    <td className="px-4 py-2.5 text-sm text-gray-600 font-mono">{project.reviewCount}</td>
+                    <td className="px-4 py-2.5 text-sm text-gray-600 font-mono">{project.avgRating.toFixed(1)}</td>
+                    <td className="px-4 py-2.5">
+                      <span className={`text-xs font-mono ${riskColor}`}>{riskLevel}</span>
+                    </td>
                   </tr>
                 )
               })}
@@ -72,11 +109,12 @@ export default async function HomePage() {
           </table>
         </div>
 
-        {allProjects.length === 0 && (
-          <div className="text-center py-12 text-gray-400 font-mono text-sm">
-            No projects yet.
-          </div>
-        )}
+        {/* Footer */}
+        <div className="mt-4 text-center text-xs font-mono text-gray-400 py-4">
+          Maiat — Verified review layer for agentic commerce · 
+          <a href="https://t.me/MaiatBot" className="text-blue-600 hover:underline ml-1">Review via Telegram</a> · 
+          <span className="ml-1">API: GET /api/trust-score?project=NAME</span>
+        </div>
       </main>
     </div>
   )
