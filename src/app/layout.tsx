@@ -21,7 +21,12 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <script dangerouslySetInnerHTML={{ __html: `
+        if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          document.documentElement.classList.add('dark')
+        }
+      `}} />
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -30,7 +35,7 @@ export default function RootLayout({
           rel="stylesheet" 
         />
       </head>
-      <body className={`${inter.className} bg-white`}>
+      <body className={`${inter.className}`}>
         <PrivyProvider>
           <div className="min-h-screen">
             {children}
