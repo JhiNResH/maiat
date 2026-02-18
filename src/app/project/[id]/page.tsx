@@ -19,6 +19,41 @@ export async function generateMetadata({ params }: Props) {
   }
 }
 
+// Generate AI summary via Gemini
+async function getAISummary(projectName: string, reviews: any[]): Promise<string> {
+  if (reviews.length === 0) return 'No reviews available for AI analysis yet.'
+  
+  try {
+    const { GoogleGenerativeAI } = await import('@google/generative-ai')
+    const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY!)
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
+    
+    const reviewTexts = reviews.slice(0, 10).map(r => `${r.rating}/5: "${r.content}"`).join('\n')
+    
+    const result = await model.generateContent(
+      `Summarize these reviews of "${projectName}" in 2-3 sentences. Be objective and data-driven. Mention key strengths and concerns.\n\nReviews:\n${reviewTexts}`
+    )
+    return result.response.text()
+  } catch (e) {
+    return 'AI analysis temporarily unavailable.'
+  }
+}
+
+// Simple quality score based on review content
+function getQualityScore(content: string): number {
+  let score = 50
+  if (content.length > 100) score += 15
+  if (content.length > 200) score += 10
+  if (content.length < 20) score -= 20
+  // Specific details boost
+  if (/\d+/.test(content)) score += 5 // contains numbers
+  if (/specific|feature|experience|using|tried|months?|years?|days?/i.test(content)) score += 10
+  if (/but|however|although|downside|issue|concern/i.test(content)) score += 5 // balanced review
+  // Generic review penalty
+  if (/^(good|bad|great|terrible|nice|ok|meh)$/i.test(content.trim())) score -= 30
+  return Math.max(0, Math.min(100, score))
+}
+
 export default async function ProjectPage({ params }: Props) {
   const { id } = await params
   const project = await prisma.project.findUnique({
@@ -49,17 +84,25 @@ export default async function ProjectPage({ params }: Props) {
   project.reviews.forEach(r => { if (r.rating >= 1 && r.rating <= 5) dist[r.rating - 1]++ })
   const maxDist = Math.max(...dist, 1)
 
+  // AI Summary
+  const aiSummary = await getAISummary(project.name, project.reviews)
+
+  // Rating trend (last 10 reviews, oldest to newest)
+  const trendReviews = [...project.reviews].reverse().slice(-10)
+  const trendMax = 5
+  const trendPoints = trendReviews.map((r, i) => {
+    const x = (i / Math.max(trendReviews.length - 1, 1)) * 100
+    const y = 100 - (r.rating / trendMax) * 100
+    return `${x},${y}`
+  }).join(' ')
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center gap-6">
         <Link href="/" className="text-xl font-bold tracking-tight font-mono hover:opacity-70">MAIAT</Link>
         <div className="flex-1 max-w-xl">
-          <input
-            type="text"
-            placeholder="Search projects..."
-            className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm font-mono focus:outline-none focus:border-gray-500 bg-gray-50"
-          />
+          <input type="text" placeholder="Search projects..." className="w-full px-3 py-1.5 border border-gray-300 rounded text-sm font-mono focus:outline-none focus:border-gray-500 bg-gray-50" />
         </div>
         <a href="https://t.me/MaiatBot" className="text-xs font-mono text-blue-600 hover:underline">@MaiatBot</a>
       </header>
@@ -75,9 +118,9 @@ export default async function ProjectPage({ params }: Props) {
         {/* Title Row */}
         <div className="flex items-center gap-3 mb-4">
           {project.image ? (
-            <img src={project.image} alt={project.name} className="w-8 h-8 rounded" />
+            <img src={project.image} alt={project.name} className="w-10 h-10 rounded" />
           ) : (
-            <div className="w-8 h-8 rounded bg-gray-200 flex items-center justify-center text-xs font-bold font-mono text-gray-500">
+            <div className="w-10 h-10 rounded bg-gray-200 flex items-center justify-center text-sm font-bold font-mono text-gray-500">
               {project.name.slice(0, 2).toUpperCase()}
             </div>
           )}
@@ -86,10 +129,9 @@ export default async function ProjectPage({ params }: Props) {
           <span className={`text-xs font-mono px-2 py-0.5 rounded ${riskColor}`}>Risk: {riskLevel}</span>
         </div>
 
-        {/* Overview Grid — Etherscan style */}
+        {/* Overview Grid */}
         <div className="bg-white border border-gray-200 rounded-md mb-4">
           <div className="grid grid-cols-2 divide-x divide-gray-200">
-            {/* Left */}
             <div className="p-4 space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-xs font-mono text-gray-500">Trust Score:</span>
@@ -112,11 +154,14 @@ export default async function ProjectPage({ params }: Props) {
                 <span className="text-sm font-mono text-gray-900">👍 {totalUpvotes} / 👎 {totalDownvotes}</span>
               </div>
             </div>
-            {/* Right */}
             <div className="p-4 space-y-3">
               <div className="flex justify-between">
                 <span className="text-xs font-mono text-gray-500">Contract:</span>
-                <span className="text-xs font-mono text-blue-600">{project.address.slice(0, 10)}...{project.address.slice(-6)}</span>
+                <span className="text-xs font-mono text-blue-600">{project.address.length > 20 ? `${project.address.slice(0, 10)}...${project.address.slice(-6)}` : project.address}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs font-mono text-gray-500">Chain:</span>
+                <span className="text-sm font-mono text-gray-900">Base / BSC</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-xs font-mono text-gray-500">Category:</span>
@@ -125,57 +170,83 @@ export default async function ProjectPage({ params }: Props) {
               {project.website && (
                 <div className="flex justify-between">
                   <span className="text-xs font-mono text-gray-500">Website:</span>
-                  <a href={project.website} target="_blank" className="text-xs font-mono text-blue-600 hover:underline">{project.website.replace('https://', '')}</a>
+                  <a href={project.website} target="_blank" rel="noopener" className="text-xs font-mono text-blue-600 hover:underline">{project.website.replace('https://', '').replace('http://', '')}</a>
                 </div>
               )}
               <div className="flex justify-between">
                 <span className="text-xs font-mono text-gray-500">Status:</span>
                 <span className="text-xs font-mono px-2 py-0.5 bg-green-50 text-green-700 rounded">Active</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-xs font-mono text-gray-500">First Review:</span>
-                <span className="text-xs font-mono text-gray-900">
-                  {project.reviews.length > 0 
-                    ? new Date(project.reviews[project.reviews.length - 1].createdAt).toISOString().split('T')[0]
-                    : 'N/A'}
-                </span>
-              </div>
             </div>
           </div>
         </div>
 
-        {/* Rating Distribution */}
+        {/* AI Analysis Summary */}
         <div className="bg-white border border-gray-200 rounded-md mb-4 p-4">
-          <h3 className="text-xs font-bold tracking-widest text-gray-500 uppercase font-mono mb-3">Rating Distribution</h3>
-          <div className="space-y-1">
-            {[5, 4, 3, 2, 1].map((star) => (
-              <div key={star} className="flex items-center gap-2">
-                <span className="text-xs font-mono text-gray-500 w-8">{star} ⭐</span>
-                <div className="flex-1 h-3 bg-gray-100 rounded overflow-hidden">
-                  <div
-                    className="h-full bg-green-500 rounded"
-                    style={{ width: `${(dist[star - 1] / maxDist) * 100}%` }}
-                  />
+          <h3 className="text-xs font-bold tracking-widest text-gray-500 uppercase font-mono mb-2 flex items-center gap-2">
+            <span>🤖 AI Analysis</span>
+            <span className="text-xs font-normal text-gray-400">(Powered by Gemini)</span>
+          </h3>
+          <p className="text-sm font-mono text-gray-700 leading-relaxed">{aiSummary}</p>
+        </div>
+
+        {/* Rating Distribution + Trend Chart */}
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          {/* Distribution */}
+          <div className="bg-white border border-gray-200 rounded-md p-4">
+            <h3 className="text-xs font-bold tracking-widest text-gray-500 uppercase font-mono mb-3">Rating Distribution</h3>
+            <div className="space-y-1.5">
+              {[5, 4, 3, 2, 1].map((star) => (
+                <div key={star} className="flex items-center gap-2">
+                  <span className="text-xs font-mono text-gray-500 w-6">{star}★</span>
+                  <div className="flex-1 h-3 bg-gray-100 rounded overflow-hidden">
+                    <div className={`h-full rounded ${star >= 4 ? 'bg-green-500' : star === 3 ? 'bg-yellow-500' : 'bg-red-500'}`} style={{ width: `${(dist[star - 1] / maxDist) * 100}%` }} />
+                  </div>
+                  <span className="text-xs font-mono text-gray-500 w-4 text-right">{dist[star - 1]}</span>
                 </div>
-                <span className="text-xs font-mono text-gray-500 w-6 text-right">{dist[star - 1]}</span>
+              ))}
+            </div>
+          </div>
+
+          {/* Trend Chart */}
+          <div className="bg-white border border-gray-200 rounded-md p-4">
+            <h3 className="text-xs font-bold tracking-widest text-gray-500 uppercase font-mono mb-3">Rating Trend</h3>
+            {trendReviews.length < 2 ? (
+              <div className="h-20 flex items-center justify-center text-xs font-mono text-gray-400">Need more reviews for trend</div>
+            ) : (
+              <div className="relative h-20">
+                {/* Y-axis labels */}
+                <div className="absolute left-0 top-0 text-[10px] font-mono text-gray-400">5</div>
+                <div className="absolute left-0 bottom-0 text-[10px] font-mono text-gray-400">1</div>
+                {/* Grid lines */}
+                <div className="absolute left-4 right-0 top-0 bottom-0">
+                  {[0, 25, 50, 75, 100].map(y => (
+                    <div key={y} className="absolute w-full border-t border-gray-100" style={{ top: `${y}%` }} />
+                  ))}
+                </div>
+                {/* SVG Line */}
+                <svg className="absolute left-4 right-0 top-0 bottom-0 w-[calc(100%-16px)] h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                  <polyline points={trendPoints} fill="none" stroke="#22c55e" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+                  {trendReviews.map((r, i) => {
+                    const x = (i / Math.max(trendReviews.length - 1, 1)) * 100
+                    const y = 100 - (r.rating / trendMax) * 100
+                    return <circle key={i} cx={x} cy={y} r="3" fill="#22c55e" vectorEffect="non-scaling-stroke" />
+                  })}
+                </svg>
               </div>
-            ))}
+            )}
           </div>
         </div>
 
         {/* Reviews */}
         <div className="bg-white border border-gray-200 rounded-md">
-          <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-            <h3 className="text-xs font-bold tracking-widest text-gray-500 uppercase font-mono">
-              Reviews ({project.reviews.length})
-            </h3>
-            <a href="https://t.me/MaiatBot" className="text-xs font-mono text-blue-600 hover:underline">+ Add Review via Telegram</a>
+          <div className="px-4 py-2.5 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+            <h3 className="text-xs font-bold tracking-widest text-gray-500 uppercase font-mono">Reviews ({project.reviews.length})</h3>
+            <a href="https://t.me/MaiatBot" className="text-xs font-mono text-blue-600 hover:underline">+ Add Review</a>
           </div>
 
           {project.reviews.length === 0 ? (
-            <div className="text-center py-8 text-gray-400 font-mono text-sm">
-              No reviews yet. Be the first — message @MaiatBot on Telegram.
-            </div>
+            <div className="text-center py-8 text-gray-400 font-mono text-sm">No reviews yet. Be the first — message @MaiatBot.</div>
           ) : (
             <div>
               {project.reviews.map((review, i) => {
@@ -184,6 +255,8 @@ export default async function ProjectPage({ params }: Props) {
                   : `${review.reviewer.address.slice(0, 6)}...${review.reviewer.address.slice(-4)}`
                 const date = new Date(review.createdAt).toISOString().split('T')[0]
                 const ratingColor = review.rating >= 4 ? 'text-green-600' : review.rating >= 3 ? 'text-yellow-600' : 'text-red-600'
+                const quality = getQualityScore(review.content)
+                const qualityColor = quality >= 70 ? 'text-green-600' : quality >= 40 ? 'text-yellow-600' : 'text-red-600'
 
                 return (
                   <div key={review.id} className={`px-4 py-3 ${i < project.reviews.length - 1 ? 'border-b border-gray-100' : ''} hover:bg-gray-50`}>
@@ -195,7 +268,10 @@ export default async function ProjectPage({ params }: Props) {
                           <span className="text-xs font-mono px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded">On-chain ✓</span>
                         )}
                       </div>
-                      <span className="text-xs font-mono text-gray-400">{date}</span>
+                      <div className="flex items-center gap-3">
+                        <span className={`text-xs font-mono ${qualityColor}`}>Quality: {quality}</span>
+                        <span className="text-xs font-mono text-gray-400">{date}</span>
+                      </div>
                     </div>
                     <p className="text-sm text-gray-700 font-mono leading-relaxed">{review.content}</p>
                   </div>

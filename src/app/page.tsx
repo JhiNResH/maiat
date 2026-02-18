@@ -84,7 +84,14 @@ export default async function HomePage() {
                   <tr key={project.id} className="border-b border-gray-50 hover:bg-blue-50/30 transition-colors">
                     <td className="px-4 py-2.5 text-xs font-mono text-gray-400">{i + 1}</td>
                     <td className="px-4 py-2.5">
-                      <Link href={`/project/${project.id}`} className="text-sm font-medium text-blue-600 hover:underline font-mono">
+                      <Link href={`/project/${project.id}`} className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:underline font-mono">
+                        {project.image ? (
+                          <img src={project.image} alt="" className="w-5 h-5 rounded" />
+                        ) : (
+                          <div className="w-5 h-5 rounded bg-gray-200 flex items-center justify-center text-[8px] font-bold text-gray-500">
+                            {project.name.slice(0, 2)}
+                          </div>
+                        )}
                         {project.name}
                       </Link>
                     </td>
