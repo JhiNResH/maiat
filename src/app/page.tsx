@@ -29,10 +29,10 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     <div className="min-h-screen bg-gray-50 dark:bg-[#0f1117]">
       {/* Header */}
       <header className="bg-white dark:bg-[#1a1b23] border-b border-gray-200 dark:border-gray-700 px-6 py-3 flex items-center">
-        <div className="flex items-center gap-2 shrink-0">
+        <Link href="/" className="flex items-center gap-2 shrink-0 hover:opacity-70 transition-opacity">
           <img src="/maiat-rmbg.png" alt="MAIAT" className="w-8 h-8" />
           <h1 className="text-xl font-bold tracking-tight font-mono text-gray-900 dark:text-gray-100">MAIAT</h1>
-        </div>
+        </Link>
         <div className="flex-1 flex justify-center px-8">
           <SearchBar />
         </div>
