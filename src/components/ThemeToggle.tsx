@@ -4,10 +4,16 @@ import { useState, useEffect } from 'react'
 import { Sun, Moon } from 'lucide-react'
 
 export function ThemeToggle() {
-  const [dark, setDark] = useState(true)
+  const [dark, setDark] = useState<boolean | undefined>(undefined)
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    setDark(document.documentElement.classList.contains('dark'))
+    setMounted(true)
+    // Read from localStorage or default to dark
+    const stored = localStorage.getItem('theme')
+    const isDark = stored === 'dark' || stored === null
+    setDark(isDark)
+    document.documentElement.classList.toggle('dark', isDark)
   }, [])
 
   const toggle = () => {
@@ -15,6 +21,13 @@ export function ThemeToggle() {
     setDark(next)
     document.documentElement.classList.toggle('dark', next)
     localStorage.setItem('theme', next ? 'dark' : 'light')
+  }
+
+  // Prevent hydration mismatch
+  if (!mounted) {
+    return (
+      <div className="p-2 w-8 h-8" />
+    )
   }
 
   return (
