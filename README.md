@@ -34,7 +34,7 @@ Next person asks → Your verified review helps them decide
 | **KiteAI** | x402 micropayment protocol for agent-to-agent verification | $10,000 |
 | **Base** | Base Verify (anti-sybil) + on-chain identity | $10,000 |
 | **Hedera/OpenClaw** | HCS attestations for immutable review records | $10,000 |
-| **Uniswap** | Trust-gated swaps via Uniswap API + on-chain TrustGate Hook | $5,000 |
+| **Uniswap** | V4 Hook: trust-gated `beforeSwap` + reputation-based dynamic fees | $5,000 |
 
 ---
 
@@ -61,6 +61,15 @@ Next person asks → Your verified review helps them decide
 │  ┌────────────────────▼──────────────────────┐  │
 │  │         Supabase (PostgreSQL)              │  │
 │  │  Projects · Reviews · Users · Trust Scores │  │
+│  └───────────────────┬───────────────────────┘  │
+│                      │                           │
+│  ┌───────────────────▼───────────────────────┐  │
+│  │        Uniswap V4 Hook Layer              │  │
+│  │                                            │  │
+│  │  TrustScoreOracle    TrustGateHook        │  │
+│  │  ├─ Token scores     ├─ beforeSwap gate   │  │
+│  │  ├─ User reputation  ├─ Dynamic fee (bps) │  │
+│  │  └─ Batch updates    └─ Revert if <30     │  │
 │  └───────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────┘
 ```
@@ -121,24 +130,47 @@ Full review lifecycle without leaving Telegram:
 
 ---
 
-### Uniswap API — Trust-Gated Swaps
-- **What:** Swap any token via Uniswap API, with Maiat trust score as a safety gate
-- **How:** `POST /api/swap` → checks trust score → if safe, returns Uniswap quote → execute swap
-- **API Key:** Uniswap Developer Platform
-- **Endpoint:** `POST /api/swap` (trust-gated) / `GET /api/swap` (quick quote)
-- **Features:**
-  - Trust score < 30 → swap **blocked** (high risk)
-  - Trust score 30-60 → swap allowed with **warning**
-  - Trust score > 60 → swap allowed ✅
-  - Falls back to quote-only if trust check unavailable
-- **Smart Contracts:** `TrustGateHook.sol` (V4 hook) + `TrustScoreOracle.sol` (on-chain oracle)
-- **Use case:** Agent or user swaps via Maiat → protected from scam tokens automatically
+### Uniswap V4 Hook — Trust-Gated Swaps + Dynamic Fees
+
+**The core innovation:** A Uniswap V4 `beforeSwap` hook that enforces trust scores on-chain and adjusts fees based on user reputation.
+
+**How it works:**
+
+```
+User initiates swap
+  → TrustGateHook.beforeSwap() fires
+    → Reads TrustScoreOracle for token trust score
+    → Score < 30? REVERT (blocked)
+    → Score ≥ 30? Check user reputation
+      → Guardian (200+ rep): 0% fee
+      → Verified (50+ rep):  0.1% fee
+      → Trusted (10+ rep):   0.3% fee
+      → New user:            0.5% fee
+    → Returns dynamic fee override to V4 pool
+```
+
+**Smart Contracts:**
+- **`TrustGateHook.sol`** — V4 hook: `beforeSwap` checks token trust + returns reputation-based `lpFeeOverride`
+- **`TrustScoreOracle.sol`** — On-chain oracle storing token scores (from community reviews) + user reputation (from Scarab points)
+
+**Off-chain flow (Web + Telegram):**
+- `POST /api/swap` → queries Maiat DB for real community reviews → gets Uniswap API quote
+- Every token is a reviewable project — community ratings directly feed the trust score
+- User's Scarab points + review history → reputation tier → fee discount shown in UI
+
+**Key features:**
+- Token scores sourced from **real community reviews** (not static data)
+- Reputation-based dynamic fees — **write reviews, get cheaper swaps**
+- `GET /api/reputation?address=0x...` — query any user's trust level + fee tier
+- 8 Base tokens supported: ETH, USDC, WETH, DAI, cbBTC, AERO, DEGEN, USDT
 
 ```bash
-# Trust-gated swap quote
+# Trust-gated swap with reputation fees
 curl -X POST https://maiat.vercel.app/api/swap \
   -H "Content-Type: application/json" \
-  -d '{"tokenIn":"0x...", "tokenOut":"0x...", "amount":"1000000000000000000", "chainId":1, "swapper":"0x..."}'
+  -d '{"tokenIn":"0x000...","tokenOut":"0x4ed...","amount":"1000000000000000000","chainId":8453,"swapper":"0x..."}'
+
+# Response includes: trustScore, tokenReviews, userReputation, fees
 ```
 
 ---
@@ -292,6 +324,22 @@ GET /api/trust-score?project=huckleberry-roasters
 ### Agent Trust Query (for AI agents)
 ```bash
 GET /api/trust-score?token=0x1234...&agent=true
+```
+
+### User Reputation & Fee Tier
+```bash
+GET /api/reputation?address=0x872989...
+```
+```json
+{
+  "address": "0x872989...",
+  "scarabPoints": 150,
+  "totalReviews": 8,
+  "reputationScore": 65,
+  "trustLevel": "verified",
+  "feeTier": 0.1,
+  "feeDiscount": "80% off (0.1% fee)"
+}
 ```
 
 ### Hedera Attestation
