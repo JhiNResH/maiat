@@ -4,66 +4,119 @@ pragma solidity 0.8.26;
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 
 /// @title TrustScoreOracle
-/// @notice Oracle that stores and manages trust scores for tokens
-/// @dev Only authorized updaters can modify trust scores
+/// @notice On-chain oracle for Maiat trust scores — fed by community reviews + AI
+/// @dev Scores are weighted: On-chain (40%) + Reviews (30%) + Community (20%) + AI (10%)
 contract TrustScoreOracle is Ownable {
-    // Mapping from token address to trust score (0-100)
-    mapping(address => uint256) private trustScores;
-
-    // Mapping of authorized updaters (e.g., Maat backend)
-    mapping(address => bool) public authorizedUpdaters;
-
-    event ScoreUpdated(address indexed token, uint256 score, address indexed updater);
-    event UpdaterAuthorized(address indexed updater, bool authorized);
-
-    error TrustScoreOracle__NotAuthorized(address caller);
-    error TrustScoreOracle__InvalidScore(uint256 score);
-    error TrustScoreOracle__ZeroAddress();
-
-    constructor(address initialOwner) Ownable(initialOwner) {
-        if (initialOwner == address(0)) revert TrustScoreOracle__ZeroAddress();
+    
+    struct TokenScore {
+        uint256 trustScore;      // 0-100 overall score
+        uint256 reviewCount;     // number of community reviews
+        uint256 avgRating;       // avg rating * 100 (e.g. 450 = 4.5 stars)
+        uint256 lastUpdated;     // block.timestamp of last update
+    }
+    
+    struct UserReputation {
+        uint256 reputationScore; // combined score (reviews + scarab)
+        uint256 totalReviews;    // reviews written
+        uint256 scarabPoints;    // Scarab balance
+        uint256 feeBps;          // fee in basis points (50 = 0.5%)
+        uint256 lastUpdated;
     }
 
-    /// @notice Authorize or deauthorize an address to update scores
-    /// @param updater Address to authorize/deauthorize
-    /// @param authorized True to authorize, false to deauthorize
-    function setAuthorizedUpdater(address updater, bool authorized) external onlyOwner {
-        if (updater == address(0)) revert TrustScoreOracle__ZeroAddress();
-        authorizedUpdaters[updater] = authorized;
-        emit UpdaterAuthorized(updater, authorized);
-    }
+    mapping(address => TokenScore) public tokenScores;
+    mapping(address => UserReputation) public userReputations;
+    
+    // Fee tiers (basis points)
+    uint256 public constant BASE_FEE = 50;        // 0.5%
+    uint256 public constant TRUSTED_FEE = 30;      // 0.3%
+    uint256 public constant VERIFIED_FEE = 10;     // 0.1%
+    uint256 public constant GUARDIAN_FEE = 0;       // 0%
 
-    /// @notice Update the trust score for a token
-    /// @param token Token address
-    /// @param score Trust score (0-100)
-    function updateScore(address token, uint256 score) external {
-        if (!authorizedUpdaters[msg.sender]) revert TrustScoreOracle__NotAuthorized(msg.sender);
-        if (score > 100) revert TrustScoreOracle__InvalidScore(score);
-        if (token == address(0)) revert TrustScoreOracle__ZeroAddress();
+    event TokenScoreUpdated(address indexed token, uint256 score, uint256 reviewCount);
+    event UserReputationUpdated(address indexed user, uint256 score, uint256 feeBps);
+    
+    constructor(address initialOwner) Ownable(initialOwner) {}
 
-        trustScores[token] = score;
-        emit ScoreUpdated(token, score, msg.sender);
-    }
-
-    /// @notice Batch update trust scores for multiple tokens
-    /// @param tokens Array of token addresses
-    /// @param scores Array of trust scores (0-100)
-    function batchUpdateScores(address[] calldata tokens, uint256[] calldata scores) external {
-        if (!authorizedUpdaters[msg.sender]) revert TrustScoreOracle__NotAuthorized(msg.sender);
-        if (tokens.length != scores.length) revert TrustScoreOracle__InvalidScore(0);
-
-        for (uint256 i = 0; i < tokens.length; i++) {
-            if (scores[i] > 100) revert TrustScoreOracle__InvalidScore(scores[i]);
-            if (tokens[i] == address(0)) revert TrustScoreOracle__ZeroAddress();
-            trustScores[tokens[i]] = scores[i];
-            emit ScoreUpdated(tokens[i], scores[i], msg.sender);
-        }
-    }
-
-    /// @notice Get the trust score for a token
-    /// @param token Token address
-    /// @return Trust score (0-100, returns 0 if not set — deny-by-default)
+    /// @notice Get trust score for a token (used by TrustGateHook)
     function getScore(address token) external view returns (uint256) {
-        return trustScores[token];
+        return tokenScores[token].trustScore;
+    }
+
+    /// @notice Get fee in basis points for a user based on reputation
+    function getUserFee(address user) external view returns (uint256) {
+        UserReputation memory rep = userReputations[user];
+        if (rep.lastUpdated == 0) return BASE_FEE; // new user
+        return rep.feeBps;
+    }
+
+    /// @notice Get full token score data
+    function getTokenData(address token) external view returns (TokenScore memory) {
+        return tokenScores[token];
+    }
+
+    /// @notice Get full user reputation data
+    function getUserData(address user) external view returns (UserReputation memory) {
+        return userReputations[user];
+    }
+
+    /// @notice Update token trust score (owner/relayer only)
+    /// @dev Called by off-chain service that aggregates community reviews
+    function updateTokenScore(
+        address token,
+        uint256 score,
+        uint256 reviewCount,
+        uint256 avgRating
+    ) external onlyOwner {
+        require(score <= 100, "Score must be 0-100");
+        tokenScores[token] = TokenScore({
+            trustScore: score,
+            reviewCount: reviewCount,
+            avgRating: avgRating,
+            lastUpdated: block.timestamp
+        });
+        emit TokenScoreUpdated(token, score, reviewCount);
+    }
+
+    /// @notice Update user reputation + fee tier (owner/relayer only)
+    function updateUserReputation(
+        address user,
+        uint256 reputationScore,
+        uint256 totalReviews,
+        uint256 scarabPoints
+    ) external onlyOwner {
+        uint256 feeBps;
+        if (reputationScore >= 200) feeBps = GUARDIAN_FEE;
+        else if (reputationScore >= 50) feeBps = VERIFIED_FEE;
+        else if (reputationScore >= 10) feeBps = TRUSTED_FEE;
+        else feeBps = BASE_FEE;
+
+        userReputations[user] = UserReputation({
+            reputationScore: reputationScore,
+            totalReviews: totalReviews,
+            scarabPoints: scarabPoints,
+            feeBps: feeBps,
+            lastUpdated: block.timestamp
+        });
+        emit UserReputationUpdated(user, reputationScore, feeBps);
+    }
+
+    /// @notice Batch update token scores
+    function batchUpdateTokenScores(
+        address[] calldata tokens,
+        uint256[] calldata scores,
+        uint256[] calldata reviewCounts,
+        uint256[] calldata avgRatings
+    ) external onlyOwner {
+        require(tokens.length == scores.length, "Length mismatch");
+        for (uint256 i = 0; i < tokens.length; i++) {
+            require(scores[i] <= 100, "Score must be 0-100");
+            tokenScores[tokens[i]] = TokenScore({
+                trustScore: scores[i],
+                reviewCount: reviewCounts[i],
+                avgRating: avgRatings[i],
+                lastUpdated: block.timestamp
+            });
+            emit TokenScoreUpdated(tokens[i], scores[i], reviewCounts[i]);
+        }
     }
 }

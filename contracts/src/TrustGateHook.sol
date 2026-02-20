@@ -12,9 +12,19 @@ import {TrustScoreOracle} from "./TrustScoreOracle.sol";
 import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 
 /// @title TrustGateHook
-/// @notice Uniswap V4 hook that checks token trust scores before allowing swaps
-/// @dev Queries TrustScoreOracle and reverts if trust score is below threshold
-/// @dev NOTE: Uses BaseTestHooks for hackathon demo. Production should use BaseHook from v4-periphery.
+/// @notice Uniswap V4 hook: trust-gated swaps + reputation-based dynamic fees
+/// @dev Queries TrustScoreOracle for token scores AND user reputation fees
+///
+/// How it works:
+/// 1. beforeSwap: Check token trust scores → block low-trust tokens
+/// 2. Dynamic fee: User reputation score → lower fees for trusted reviewers
+/// 3. Community reviews feed the oracle → reviews = lower fees = real economic value
+///
+/// Fee tiers (from TrustScoreOracle):
+///   Guardian (200+ rep): 0% fee
+///   Verified (50+ rep):  0.1% fee  
+///   Trusted (10+ rep):   0.3% fee
+///   New (0-9 rep):       0.5% fee
 contract TrustGateHook is BaseTestHooks, Ownable {
     using BeforeSwapDeltaLibrary for BeforeSwapDelta;
 
@@ -25,14 +35,11 @@ contract TrustGateHook is BaseTestHooks, Ownable {
     event TrustGateChecked(address indexed token, uint256 score, bool passed);
     event SwapBlocked(address indexed token, uint256 score, uint256 threshold);
     event ThresholdUpdated(uint256 oldThreshold, uint256 newThreshold);
+    event DynamicFeeApplied(address indexed swapper, uint256 feeBps);
 
-    error TrustGateHook__TrustScoreTooLow(address token, uint256 score, uint256 threshold);
-    error TrustGateHook__InvalidThreshold(uint256 threshold);
+    error TrustScoreTooLow(address token, uint256 score, uint256 threshold);
     error TrustGateHook__ZeroAddress();
     error TrustGateHook__NotPoolManager(address caller);
-
-    // Keep old error name for backwards compat with tests
-    error TrustScoreTooLow(address token, uint256 score, uint256 threshold);
 
     modifier onlyPoolManager() {
         if (msg.sender != address(poolManager)) revert TrustGateHook__NotPoolManager(msg.sender);
@@ -50,27 +57,24 @@ contract TrustGateHook is BaseTestHooks, Ownable {
 
         oracle = _oracle;
         poolManager = _poolManager;
-        trustThreshold = 60; // Default: deny-by-default for unregistered tokens
+        trustThreshold = 30; // Block tokens with score < 30
     }
 
-    /// @notice Update the trust score threshold (owner only)
-    /// @param newThreshold New threshold value (0-100)
     function updateThreshold(uint256 newThreshold) external onlyOwner {
-        if (newThreshold > 100) revert TrustGateHook__InvalidThreshold(newThreshold);
-        uint256 oldThreshold = trustThreshold;
+        require(newThreshold <= 100, "Invalid threshold");
+        uint256 old = trustThreshold;
         trustThreshold = newThreshold;
-        emit ThresholdUpdated(oldThreshold, newThreshold);
+        emit ThresholdUpdated(old, newThreshold);
     }
 
-    /// @notice Hook called before a swap — checks trust scores of both pool tokens
-    /// @dev Only callable by the PoolManager
+    /// @notice beforeSwap: trust-gate tokens + apply reputation-based dynamic fee
     function beforeSwap(
-        address,
+        address sender,
         PoolKey calldata key,
         SwapParams calldata,
         bytes calldata
     ) external override onlyPoolManager returns (bytes4, BeforeSwapDelta, uint24) {
-        // Check currency0 trust score (skip native ETH)
+        // Check currency0 trust score
         address token0 = Currency.unwrap(key.currency0);
         if (token0 != address(0)) {
             uint256 score0 = oracle.getScore(token0);
@@ -81,7 +85,7 @@ contract TrustGateHook is BaseTestHooks, Ownable {
             emit TrustGateChecked(token0, score0, true);
         }
 
-        // Check currency1 trust score (skip native ETH)
+        // Check currency1 trust score
         address token1 = Currency.unwrap(key.currency1);
         if (token1 != address(0)) {
             uint256 score1 = oracle.getScore(token1);
@@ -92,6 +96,15 @@ contract TrustGateHook is BaseTestHooks, Ownable {
             emit TrustGateChecked(token1, score1, true);
         }
 
-        return (IHooks.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, 0);
+        // Dynamic fee based on user reputation
+        // sender = the original tx.origin / router caller
+        uint256 feeBps = oracle.getUserFee(sender);
+        emit DynamicFeeApplied(sender, feeBps);
+
+        // Return fee override as uint24 (in hundredths of a bip for V4)
+        // V4 fee = feeBps * 100 (e.g., 50 bps = 5000)
+        uint24 lpFeeOverride = uint24(feeBps * 100);
+
+        return (IHooks.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, lpFeeOverride);
     }
 }
