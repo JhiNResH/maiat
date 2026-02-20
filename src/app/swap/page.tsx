@@ -106,7 +106,7 @@ interface QuoteResult {
 }
 
 export default function SwapPage() {
-  const { authenticated, user, login } = usePrivy()
+  const { authenticated, user, login, logout } = usePrivy()
   const [tokenIn, setTokenIn] = useState(POPULAR_TOKENS[0])
   const [tokenOut, setTokenOut] = useState(POPULAR_TOKENS[1])
   const [amount, setAmount] = useState('')
@@ -178,9 +178,20 @@ export default function SwapPage() {
               <button className="px-4 py-2 rounded-xl text-[#6b6b70] hover:text-white text-sm font-semibold transition-colors">Explore</button>
             </Link>
           </div>
-          <button className="p-2 rounded-xl hover:bg-white/5 text-[#6b6b70] hover:text-white transition-colors">
-            <Settings className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {authenticated ? (
+              <button onClick={logout} className="px-3 py-1.5 rounded-xl bg-[#1f1f23] text-xs font-mono text-zinc-300 hover:bg-[#2a2a2e] transition-colors">
+                {address ? `${address.slice(0,6)}...${address.slice(-4)}` : 'Connected'}
+              </button>
+            ) : (
+              <button onClick={login} className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-medium text-white transition-colors">
+                Connect
+              </button>
+            )}
+            <button className="p-2 rounded-xl hover:bg-white/5 text-[#6b6b70] hover:text-white transition-colors">
+              <Settings className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Main Card */}
