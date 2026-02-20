@@ -1,0 +1,12 @@
+{
+  "schedule": "0 */5 * * * *",
+  "maiatApiUrl": "https://maiat.vercel.app/api/reviews/pending",
+  "aiVerifyUrl": "https://maiat.vercel.app/api/verify-review",
+  "evms": [
+    {
+      "chainName": "ethereum-testnet-sepolia",
+      "trustScoreOracleAddress": "0x0000000000000000000000000000000000000000",
+      "gasLimit": "500000"
+    }
+  ]
+}
