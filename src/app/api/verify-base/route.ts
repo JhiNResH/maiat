@@ -164,6 +164,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       await prisma.user.upsert({
         where: { address: address.toLowerCase() },
         update: {
+          // Base Verify increases reputation (anti-sybil bonus)
           // Add baseVerifyToken field to schema if needed
           // For now, we'll just update the user record
         },
