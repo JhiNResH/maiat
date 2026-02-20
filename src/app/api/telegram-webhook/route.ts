@@ -364,13 +364,18 @@ async function handleSwap(chatId: number, text: string) {
     'ETH': { address: '0x0000000000000000000000000000000000000000', decimals: 18 },
     'WETH': { address: '0x4200000000000000000000000000000000000006', decimals: 18 },
     'USDC': { address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', decimals: 6 },
+    'DAI': { address: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb', decimals: 18 },
+    'CBBTC': { address: '0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf', decimals: 8 },
+    'AERO': { address: '0x940181a94A35A4569E4529A3CDfB74e38FD98631', decimals: 18 },
+    'DEGEN': { address: '0x4ed4E862860beD51a9570b96d89aF5E1B0Efefed', decimals: 18 },
+    'USDT': { address: '0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2', decimals: 6 },
   }
 
   const tIn = tokens[tokenInSymbol]
   const tOut = tokens[tokenOutSymbol]
 
   if (!tIn || !tOut) {
-    await sendMessage(chatId, `❌ Unknown token. Supported: ETH, WETH, USDC\n\nUsage: <code>/swap ETH USDC 0.1</code>`)
+    await sendMessage(chatId, `❌ Unknown token.\n\nSupported: ETH, WETH, USDC, DAI, CBBTC, AERO, DEGEN, USDT\n\nUsage: <code>/swap DEGEN USDC 100</code>`)
     return
   }
 
@@ -402,30 +407,50 @@ async function handleSwap(chatId: number, text: string) {
     const trustEmoji = !data.allowed ? '🔴' : data.warning ? '🟡' : '🟢'
     const trustLabel = !data.allowed ? 'BLOCKED' : data.warning ? 'CAUTION' : 'SAFE'
     
-    let text = `${trustEmoji} <b>Trust-Gated Swap Quote</b>\n\n`
-    text += `📊 ${amount} ${tokenInSymbol} → ${tokenOutSymbol}\n`
+    let msg = `${trustEmoji} <b>Trust-Gated Swap</b>\n\n`
+    msg += `📊 ${amount} ${tokenInSymbol} → ${tokenOutSymbol}\n`
     
+    // Token trust score
     if (data.trustScore !== undefined) {
-      text += `🛡️ Trust Score: <b>${data.trustScore}/100</b> (${trustLabel})\n`
+      msg += `\n🛡️ <b>${data.tokenName || tokenOutSymbol}</b> Trust: <b>${data.trustScore}/100</b> (${trustLabel})`
+      if (data.tokenReviews !== undefined) {
+        msg += `\n   ${data.tokenReviews} reviews · ${(data.tokenRating || 0).toFixed(1)}★`
+      }
+      msg += '\n'
     }
 
-    if (data.warning) {
-      text += `\n⚠️ ${data.warning}\n`
+    if (data.warning) msg += `\n⚠️ ${data.warning}\n`
+    if (!data.allowed) msg += `\n❌ Swap blocked for your protection.\n`
+
+    // Uniswap quote
+    if (data.quote) {
+      const outAmount = data.quote?.quote?.output?.amount
+      if (outAmount) {
+        const outDecimals = tOut.decimals
+        const outputFormatted = (Number(outAmount) / (10 ** outDecimals)).toFixed(4)
+        msg += `\n💰 Quote: <b>${outputFormatted} ${tokenOutSymbol}</b>`
+      }
+      if (data.quote.routing) msg += `\n🔀 Route: ${data.quote.routing}`
+      msg += '\n'
     }
 
-    if (!data.allowed) {
-      text += `\n❌ Swap blocked for your protection.`
+    // User reputation + fees
+    if (data.userReputation) {
+      const rep = data.userReputation
+      msg += `\n👤 Your Level: <b>${rep.trustLevel.toUpperCase()}</b> (rep: ${rep.reputationScore})`
+      msg += `\n🪲 Scarab: ${rep.scarabPoints}`
+    }
+    if (data.fees) {
+      msg += `\n💸 Fee: <b>${data.fees.effectiveFee}</b>`
+      if (data.fees.saved) msg += ` (${data.fees.saved})`
+      msg += '\n'
     }
 
-    if (data.quote?.routing) {
-      text += `\n🔀 Route: ${data.quote.routing}`
-    }
+    msg += `\n<i>Powered by Uniswap API × Maiat Trust Layer on Base</i>`
 
-    text += `\n\n<i>Powered by Uniswap API × Maiat Trust Layer</i>`
-
-    await sendMessage(chatId, text, {
+    await sendMessage(chatId, msg, {
       inline_keyboard: [
-        [{ text: '🔄 Swap on Maiat', url: `${WEBAPP_URL}/swap` }],
+        [{ text: '🔄 Execute on Maiat', url: `${WEBAPP_URL}/?view=swap` }],
       ]
     })
   } catch (e: any) {
