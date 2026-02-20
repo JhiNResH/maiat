@@ -8,7 +8,7 @@ import {PoolKey} from "v4-core/types/PoolKey.sol";
 import {Currency} from "v4-core/types/Currency.sol";
 import {IHooks} from "v4-core/interfaces/IHooks.sol";
 import {IPoolManager} from "v4-core/interfaces/IPoolManager.sol";
-import {SwapParams} from "v4-core/types/PoolOperation.sol";
+import {LPFeeLibrary} from "v4-core/libraries/LPFeeLibrary.sol";
 
 contract TrustGateHookTest is Test {
     TrustGateHook    public hook;
@@ -50,8 +50,8 @@ contract TrustGateHookTest is Test {
         });
     }
 
-    function _makeParams() internal pure returns (SwapParams memory) {
-        return SwapParams({zeroForOne: true, amountSpecified: -100, sqrtPriceLimitX96: 0});
+    function _makeParams() internal pure returns (IPoolManager.SwapParams memory) {
+        return IPoolManager.SwapParams({zeroForOne: true, amountSpecified: -100, sqrtPriceLimitX96: 0});
     }
 
     // ─── Constructor ───────────────────────────────────────────
@@ -102,7 +102,7 @@ contract TrustGateHookTest is Test {
     }
 
     function test_UpdateThreshold_InvalidReverts() public {
-        vm.expectRevert("Invalid threshold");
+        vm.expectRevert(abi.encodeWithSelector(TrustGateHook.TrustGateHook__InvalidThreshold.selector, 101));
         hook.updateThreshold(101);
     }
 
@@ -199,7 +199,7 @@ contract TrustGateHookTest is Test {
         // swapper has no reputation → BASE_FEE = 50 bps → lpFeeOverride = 5000
         vm.prank(mockPoolManager);
         (,, uint24 fee) = hook.beforeSwap(swapper, _makeKey(), _makeParams(), "");
-        assertEq(fee, 50 * 100); // 5000
+        assertEq(fee, uint24(50 * 100) | LPFeeLibrary.OVERRIDE_FEE_FLAG);
     }
 
     function test_BeforeSwap_TrustedUserGetsTrustedFee() public {
@@ -208,7 +208,7 @@ contract TrustGateHookTest is Test {
 
         vm.prank(mockPoolManager);
         (,, uint24 fee) = hook.beforeSwap(swapper, _makeKey(), _makeParams(), "");
-        assertEq(fee, 30 * 100); // 3000
+        assertEq(fee, uint24(30 * 100) | LPFeeLibrary.OVERRIDE_FEE_FLAG);
     }
 
     function test_BeforeSwap_VerifiedUserGetsVerifiedFee() public {
@@ -217,7 +217,7 @@ contract TrustGateHookTest is Test {
 
         vm.prank(mockPoolManager);
         (,, uint24 fee) = hook.beforeSwap(swapper, _makeKey(), _makeParams(), "");
-        assertEq(fee, 10 * 100); // 1000
+        assertEq(fee, uint24(10 * 100) | LPFeeLibrary.OVERRIDE_FEE_FLAG);
     }
 
     function test_BeforeSwap_GuardianUserGetsZeroFee() public {
@@ -226,7 +226,7 @@ contract TrustGateHookTest is Test {
 
         vm.prank(mockPoolManager);
         (,, uint24 fee) = hook.beforeSwap(swapper, _makeKey(), _makeParams(), "");
-        assertEq(fee, 0);
+        assertEq(fee, uint24(0) | LPFeeLibrary.OVERRIDE_FEE_FLAG);
     }
 
     function test_BeforeSwap_EmitsDynamicFeeEvent() public {
@@ -276,7 +276,7 @@ contract TrustGateHookTest is Test {
 
     function testFuzz_OracleScoreRange(uint256 score) public {
         if (score > 100) {
-            vm.expectRevert("Score must be 0-100");
+            vm.expectRevert(abi.encodeWithSelector(TrustScoreOracle.TrustScoreOracle__ScoreOutOfRange.selector, score));
             oracle.updateTokenScore(token0, score, 0, 0);
         } else {
             oracle.updateTokenScore(token0, score, 0, 0);
@@ -293,6 +293,6 @@ contract TrustGateHookTest is Test {
         (,, uint24 fee) = hook.beforeSwap(swapper, _makeKey(), _makeParams(), "");
 
         uint256 expectedBps = oracle.getUserFee(swapper);
-        assertEq(fee, uint24(expectedBps * 100));
+        assertEq(fee, uint24(expectedBps * 100) | LPFeeLibrary.OVERRIDE_FEE_FLAG);
     }
 }

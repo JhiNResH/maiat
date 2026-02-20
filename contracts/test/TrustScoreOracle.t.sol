@@ -67,7 +67,7 @@ contract TrustScoreOracleTest is Test {
     }
 
     function test_UpdateTokenScore_OverMaxReverts() public {
-        vm.expectRevert("Score must be 0-100");
+        vm.expectRevert(abi.encodeWithSelector(TrustScoreOracle.TrustScoreOracle__ScoreOutOfRange.selector, 101));
         oracle.updateTokenScore(token, 101, 10, 400);
     }
 
@@ -112,7 +112,7 @@ contract TrustScoreOracleTest is Test {
         uint256[] memory avgRatings   = new uint256[](2);
         tokens[0] = token; tokens[1] = token2;
 
-        vm.expectRevert("Length mismatch");
+        vm.expectRevert(TrustScoreOracle.TrustScoreOracle__LengthMismatch.selector);
         oracle.batchUpdateTokenScores(tokens, scores, reviewCounts, avgRatings);
     }
 
@@ -197,7 +197,7 @@ contract TrustScoreOracleTest is Test {
 
     function testFuzz_TokenScore_InvalidRange(uint256 score) public {
         score = bound(score, 101, type(uint256).max);
-        vm.expectRevert("Score must be 0-100");
+        vm.expectRevert(abi.encodeWithSelector(TrustScoreOracle.TrustScoreOracle__ScoreOutOfRange.selector, score));
         oracle.updateTokenScore(token, score, 0, 0);
     }
 
