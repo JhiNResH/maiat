@@ -3,20 +3,36 @@ import { calculateTrustScore } from '@/lib/trust-score'
 import Link from 'next/link'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { SearchBar } from '@/components/SearchBar'
+import { CategoryTabs } from '@/components/CategoryTabs'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
-export default async function HomePage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  const { q } = await searchParams
+const CATEGORIES = [
+  { key: 'all', label: 'All' },
+  { key: 'ai-agents', label: 'AI Agents', dbValue: 'm/ai-agents' },
+  { key: 'defi', label: 'DeFi', dbValue: 'm/defi' },
+  { key: 'coffee', label: 'Coffee', dbValue: 'm/coffee' },
+]
+
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ q?: string; cat?: string }> }) {
+  const { q, cat } = await searchParams
+  const activeCat = CATEGORIES.find(c => c.key === cat) ?? CATEGORIES[0]
+
+  const where: any = {}
+  if (activeCat.key !== 'all') {
+    where.category = activeCat.dbValue
+  }
+  if (q) {
+    where.OR = [
+      { name: { contains: q, mode: 'insensitive' } },
+      { description: { contains: q, mode: 'insensitive' } },
+      { category: { contains: q, mode: 'insensitive' } },
+    ]
+  }
+
   const allProjects = await prisma.project.findMany({
-    where: q ? {
-      OR: [
-        { name: { contains: q, mode: 'insensitive' } },
-        { description: { contains: q, mode: 'insensitive' } },
-        { category: { contains: q, mode: 'insensitive' } },
-      ]
-    } : undefined,
+    where: Object.keys(where).length > 0 ? where : undefined,
     orderBy: { reviewCount: 'desc' },
   })
 
@@ -65,11 +81,14 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           </div>
         </div>
 
+        {/* Category Tabs */}
+        <CategoryTabs categories={CATEGORIES.map(c => ({ key: c.key, label: c.label }))} activeKey={activeCat.key} />
+
         {/* Table */}
         <div className="bg-white dark:bg-[#1a1b23] border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden">
           <div className="px-4 py-2.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0f1117]">
             <span className="text-xs font-bold tracking-widest text-gray-500 dark:text-gray-400 uppercase font-mono">
-              All Projects ({totalProjects})
+              {activeCat.label === 'All' ? 'All Projects' : activeCat.label} ({totalProjects})
             </span>
           </div>
 
@@ -93,7 +112,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                 const barColor = trustScore >= 80 ? 'bg-green-500' : trustScore >= 50 ? 'bg-yellow-500' : 'bg-red-500'
                 const riskLevel = trustScore >= 80 ? 'Low' : trustScore >= 50 ? 'Medium' : 'High'
                 const riskColor = trustScore >= 80 ? 'text-green-600' : trustScore >= 50 ? 'text-yellow-600' : 'text-red-600'
-                const categoryLabel = project.category === 'm/ai-agents' ? 'AI Agent' : 'DeFi'
+                const categoryLabel = project.category === 'm/ai-agents' ? 'AI Agent' : project.category === 'm/coffee' ? 'Coffee' : 'DeFi'
 
                 return (
                   <tr key={project.id} className="border-b border-gray-50 dark:border-gray-800 hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors">
@@ -135,7 +154,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
               const scoreColor = trustScore >= 80 ? 'text-green-600' : trustScore >= 50 ? 'text-yellow-600' : 'text-red-600'
               const riskLevel = trustScore >= 80 ? 'Low' : trustScore >= 50 ? 'Medium' : 'High'
               const riskColor = trustScore >= 80 ? 'text-green-600' : trustScore >= 50 ? 'text-yellow-600' : 'text-red-600'
-              const categoryLabel = project.category === 'm/ai-agents' ? 'AI Agent' : 'DeFi'
+              const categoryLabel = project.category === 'm/ai-agents' ? 'AI Agent' : project.category === 'm/coffee' ? 'Coffee' : 'DeFi'
 
               return (
                 <Link
