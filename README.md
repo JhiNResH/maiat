@@ -120,6 +120,30 @@ Full review lifecycle without leaving Telegram:
 
 ---
 
+## 🪲 Scarab Points System
+
+Scarab is Maiat's off-chain incentive layer that rewards quality contributions:
+
+| Action | Scarab |
+|--------|--------|
+| Initial claim | +20 |
+| Daily claim | +5 (streak bonus: +1/day, max +5) |
+| Write a review | -2 |
+| Vote on a review | -5 |
+| Purchase (USDC) | $1=50 / $5=300 / $20=1,500 |
+
+**First-week 2x boost** on all earning actions.
+
+**Endpoints:**
+- `GET /api/scarab/balance?address=0x...` — Check balance
+- `POST /api/scarab/claim` — Daily claim
+- `POST /api/scarab/purchase` — Buy Scarab with USDC
+- `GET /api/scarab/history?address=0x...` — Transaction history
+
+Scarab gates review/vote actions, creating a cost to spam while rewarding genuine participation.
+
+---
+
 ## 🛠️ Tech Stack
 
 | Layer | Technology |
