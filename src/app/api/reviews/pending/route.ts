@@ -9,36 +9,37 @@
  */
 
 import { NextResponse } from "next/server"
-import { createClient } from "@supabase/supabase-js"
+import { PrismaClient } from "@prisma/client"
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+const prisma = new PrismaClient()
 
 export async function GET() {
   try {
-    // Fetch reviews that haven't been CRE-verified yet
-    const { data: reviews, error } = await supabase
-      .from("reviews")
-      .select("id, project_id, content, rating, author_address, created_at")
-      .eq("cre_verified", false)
-      .order("created_at", { ascending: true })
-      .limit(50)
+    // Pending = reviews without on-chain verification (no txHash)
+    const reviews = await prisma.review.findMany({
+      where: {
+        txHash: null,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+      take: 50,
+      select: {
+        id: true,
+        projectId: true,
+        content: true,
+        rating: true,
+        createdAt: true,
+      },
+    })
 
-    if (error) {
-      console.error("Error fetching pending reviews:", error)
-      // Return empty set rather than error — CRE workflow needs valid JSON
-      return NextResponse.json({ reviews: [], count: 0 })
-    }
-
-    const formattedReviews = (reviews || []).map((r) => ({
+    const formattedReviews = reviews.map((r) => ({
       id: r.id,
-      projectId: r.project_id,
+      projectId: r.projectId,
       content: r.content,
       rating: r.rating,
-      authorAddress: r.author_address,
-      createdAt: r.created_at,
+      authorAddress: null,
+      createdAt: r.createdAt,
     }))
 
     return NextResponse.json({
