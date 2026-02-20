@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
-import { ThumbsUp, ThumbsDown } from 'lucide-react'
 
 interface VoteButtonsProps {
   projectId: string
@@ -26,11 +25,7 @@ export function VoteButtons({
   const address = user?.wallet?.address
 
   const handleVote = async (voteType: 'upvote' | 'downvote') => {
-    if (!authenticated) {
-      login()
-      return
-    }
-
+    if (!authenticated) { login(); return }
     if (!address) return
 
     setVoting(true)
@@ -40,17 +35,11 @@ export function VoteButtons({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ address, voteType }),
       })
-
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Vote failed')
 
-      // Update counts optimistically
-      if (voteType === 'upvote') {
-        setUpvotes(upvotes + 1)
-      } else {
-        setDownvotes(downvotes + 1)
-      }
-
+      if (voteType === 'upvote') setUpvotes(upvotes + 1)
+      else setDownvotes(downvotes + 1)
       setHasVoted(true)
       alert(`✅ Vote recorded! (-5 Scarab spent)`)
     } catch (e: any) {
@@ -65,39 +54,25 @@ export function VoteButtons({
       <button
         onClick={() => handleVote('upvote')}
         disabled={voting || hasVoted}
-        className={`
-          flex items-center gap-1 px-3 py-1.5 rounded-lg transition-all
-          ${
-            hasVoted
-              ? 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
-              : 'bg-emerald-900/30 text-emerald-400 hover:bg-emerald-900/50 border border-emerald-500/30'
-          }
-        `}
+        className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-mono text-xs transition-all ${
+          hasVoted ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-green-50 text-green-600 hover:bg-green-100 border border-green-200'
+        }`}
       >
-        <ThumbsUp className="w-4 h-4" />
-        <span>{upvotes}</span>
+        👍 <span>{upvotes}</span>
       </button>
 
       <button
         onClick={() => handleVote('downvote')}
         disabled={voting || hasVoted}
-        className={`
-          flex items-center gap-1 px-3 py-1.5 rounded-lg transition-all
-          ${
-            hasVoted
-              ? 'bg-zinc-800 text-zinc-600 cursor-not-allowed'
-              : 'bg-red-900/30 text-red-400 hover:bg-red-900/50 border border-red-500/30'
-          }
-        `}
+        className={`flex items-center gap-1 px-2.5 py-1 rounded-md font-mono text-xs transition-all ${
+          hasVoted ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-red-50 text-red-500 hover:bg-red-100 border border-red-200'
+        }`}
       >
-        <ThumbsDown className="w-4 h-4" />
-        <span>{downvotes}</span>
+        👎 <span>{downvotes}</span>
       </button>
 
-      {!authenticated && (
-        <span className="text-xs text-zinc-500">• Sign in to vote (5 🪲)</span>
-      )}
-      {hasVoted && <span className="text-xs text-zinc-500">• Voted ✓</span>}
+      {!authenticated && <span className="text-xs font-mono text-gray-400">Sign in to vote</span>}
+      {hasVoted && <span className="text-xs font-mono text-gray-400">Voted ✓</span>}
     </div>
   )
 }

@@ -1,13 +1,12 @@
 import { prisma } from '@/lib/prisma'
 import { notFound } from 'next/navigation'
-
-export const dynamic = 'force-dynamic'
-import { TrustBadge } from '@/components/TrustBadge'
+import { getSimpleTrustScore } from '@/lib/trust-score'
 import { ReviewForm } from '@/components/ReviewForm'
 import { VoteButtons } from '@/components/VoteButtons'
 import { OnChainBadge } from '@/components/OnChainBadge'
 import Link from 'next/link'
-import { ArrowLeft, ExternalLink, Star, ThumbsUp, ThumbsDown, Clock, Shield } from 'lucide-react'
+
+export const dynamic = 'force-dynamic'
 
 export default async function ProjectDetailPage({
   params,
@@ -29,7 +28,12 @@ export default async function ProjectDetailPage({
 
   if (!project) return notFound()
 
-  const stars = Math.round(project.avgRating)
+  const trustScore = getSimpleTrustScore(project.name, project.category, project.avgRating, project.reviewCount)
+  const scoreColor = trustScore >= 80 ? 'text-green-600' : trustScore >= 50 ? 'text-yellow-600' : 'text-red-600'
+  const barColor = trustScore >= 80 ? 'bg-green-500' : trustScore >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+  const riskLevel = trustScore >= 80 ? 'Low' : trustScore >= 50 ? 'Medium' : 'High'
+  const riskColor = trustScore >= 80 ? 'text-green-600' : trustScore >= 50 ? 'text-yellow-600' : 'text-red-600'
+  const categoryLabel = project.category === 'm/ai-agents' ? 'AI Agent' : project.category === 'm/defi' ? 'DeFi' : 'Coffee'
   const categorySlug = project.category.replace('m/', '')
 
   // Rating distribution
@@ -40,214 +44,218 @@ export default async function ProjectDetailPage({
   const maxDist = Math.max(...dist, 1)
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-white">
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        {/* Breadcrumb */}
-        <Link
-          href={`/m/${categorySlug}`}
-          className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-purple-400 transition-colors mb-6"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to m/{categorySlug}
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 px-3 sm:px-6 py-3 flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2 shrink-0 hover:opacity-70">
+          <img src="/maiat-rmbg.png" alt="MAIAT" className="w-8 h-8" />
+          <span className="text-xl font-bold tracking-tight font-mono text-gray-900">MAIAT</span>
         </Link>
+        <div className="flex-1" />
+        <Link href="/?view=swap" className="text-xs font-mono px-2.5 py-1 rounded-md text-blue-600 hover:bg-blue-50">Swap</Link>
+        <a href="https://t.me/MaiatBot" className="text-xs font-mono text-blue-600 hover:underline hidden sm:inline">@MaiatBot</a>
+      </header>
 
-        {/* Project Header */}
-        <div className="bg-zinc-900/50 border border-zinc-800 rounded-2xl p-6 mb-8">
-          <div className="flex items-start gap-5">
+      <main className="px-3 sm:px-6 py-4 max-w-5xl mx-auto">
+        {/* Breadcrumb */}
+        <div className="mb-3 text-xs font-mono text-gray-400">
+          <Link href="/" className="hover:text-gray-600">Home</Link>
+          <span className="mx-1">/</span>
+          <Link href={`/?cat=${categorySlug}`} className="hover:text-gray-600">{categoryLabel}</Link>
+          <span className="mx-1">/</span>
+          <span className="text-gray-600">{project.name}</span>
+        </div>
+
+        {/* Project Header Card */}
+        <div className="bg-white border border-gray-200 rounded-md p-5 mb-4">
+          <div className="flex items-start gap-4">
             {/* Logo */}
-            <div className="w-20 h-20 rounded-xl bg-zinc-800 flex items-center justify-center overflow-hidden shrink-0 border border-zinc-700">
-              {project.image ? (
-                <img src={project.image} alt={project.name} className="w-14 h-14 object-contain" />
-              ) : (
-                <span className="text-4xl">🧩</span>
-              )}
-            </div>
+            {project.image ? (
+              <img src={project.image} alt={project.name} className="w-14 h-14 rounded-lg border border-gray-200" />
+            ) : (
+              <div className="w-14 h-14 rounded-lg bg-gray-100 flex items-center justify-center text-lg font-bold font-mono text-gray-400 border border-gray-200">
+                {project.name.slice(0, 2).toUpperCase()}
+              </div>
+            )}
 
             {/* Info */}
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-3 flex-wrap mb-2">
-                <h1 className="text-3xl font-bold">{project.name}</h1>
-                <TrustBadge
-                  status={project.status as 'approved' | 'pending' | 'rejected'}
-                  size="md"
-                />
+              <div className="flex items-center gap-3 flex-wrap mb-1">
+                <h1 className="text-2xl font-bold font-mono text-gray-900">{project.name}</h1>
+                <span className="text-xs font-mono px-2 py-0.5 bg-gray-100 border border-gray-200 rounded text-gray-500">{categoryLabel}</span>
+                <span className={`text-xs font-mono px-2 py-0.5 rounded ${trustScore >= 80 ? 'bg-green-50 text-green-700 border border-green-200' : trustScore >= 50 ? 'bg-yellow-50 text-yellow-700 border border-yellow-200' : 'bg-red-50 text-red-700 border border-red-200'}`}>
+                  Risk: {riskLevel}
+                </span>
               </div>
 
               {project.description && (
-                <p className="text-zinc-400 mb-4 max-w-2xl">{project.description}</p>
+                <p className="text-sm font-mono text-gray-500 mb-3">{project.description}</p>
               )}
 
               <div className="flex items-center gap-6 flex-wrap">
-                {/* Rating */}
+                {/* Trust Score */}
                 <div className="flex items-center gap-2">
-                  <div className="flex">
-                    {[1, 2, 3, 4, 5].map((s) => (
-                      <Star
-                        key={s}
-                        className={`w-5 h-5 ${
-                          s <= stars ? 'text-amber-400 fill-amber-400' : 'text-zinc-700'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                  <span className="text-lg font-semibold">{project.avgRating.toFixed(1)}</span>
-                  <span className="text-sm text-zinc-500">({project.reviewCount} reviews)</span>
+                  <div className={`w-1 h-6 rounded-full ${barColor}`} />
+                  <span className={`text-2xl font-bold font-mono ${scoreColor}`}>{trustScore}</span>
+                  <span className="text-xs font-mono text-gray-400">/100</span>
+                </div>
+
+                {/* Rating */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-mono text-gray-600">{'⭐'.repeat(Math.round(project.avgRating))}</span>
+                  <span className="text-sm font-bold font-mono text-gray-900">{project.avgRating.toFixed(1)}</span>
+                  <span className="text-xs font-mono text-gray-400">({project.reviewCount} reviews)</span>
                 </div>
 
                 {/* Links */}
                 {project.website && (
-                  <a
-                    href={project.website}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-sm text-purple-400 hover:text-purple-300"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                    Website
+                  <a href={project.website} target="_blank" rel="noopener" className="text-xs font-mono text-blue-600 hover:underline flex items-center gap-1">
+                    🔗 Website
                   </a>
                 )}
 
-                {/* Vote */}
-                <VoteButtons
-                  projectId={project.id}
-                  projectName={project.name}
-                />
+                <VoteButtons projectId={project.id} projectName={project.name} />
               </div>
             </div>
           </div>
-
-          {/* Rating Distribution */}
-          {project.reviews.length > 0 && (
-            <div className="mt-6 pt-6 border-t border-zinc-800">
-              <h3 className="text-sm font-medium text-zinc-400 mb-3">Rating Distribution</h3>
-              <div className="space-y-1.5">
-                {[5, 4, 3, 2, 1].map((rating) => (
-                  <div key={rating} className="flex items-center gap-2 text-sm">
-                    <span className="w-4 text-zinc-500 text-right">{rating}</span>
-                    <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
-                    <div className="flex-1 h-2 bg-zinc-800 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-amber-400/60 rounded-full transition-all"
-                        style={{ width: `${(dist[rating - 1] / maxDist) * 100}%` }}
-                      />
-                    </div>
-                    <span className="w-6 text-zinc-600 text-right">{dist[rating - 1]}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* Two Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Overview Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+          {/* Rating Distribution */}
+          <div className="bg-white border border-gray-200 rounded-md p-4">
+            <h3 className="text-xs font-bold tracking-widest text-gray-400 uppercase font-mono mb-3">Rating Distribution</h3>
+            <div className="space-y-1.5">
+              {[5, 4, 3, 2, 1].map((rating) => (
+                <div key={rating} className="flex items-center gap-2">
+                  <span className="text-xs font-mono text-gray-500 w-6">{rating}★</span>
+                  <div className="flex-1 h-3 bg-gray-100 rounded overflow-hidden">
+                    <div
+                      className={`h-full rounded ${rating >= 4 ? 'bg-green-500' : rating === 3 ? 'bg-yellow-500' : 'bg-red-400'}`}
+                      style={{ width: `${(dist[rating - 1] / maxDist) * 100}%` }}
+                    />
+                  </div>
+                  <span className="text-xs font-mono text-gray-400 w-4 text-right">{dist[rating - 1]}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Project Details */}
+          <div className="bg-white border border-gray-200 rounded-md p-4">
+            <h3 className="text-xs font-bold tracking-widest text-gray-400 uppercase font-mono mb-3">Details</h3>
+            <div className="space-y-2.5">
+              <div className="flex justify-between">
+                <span className="text-xs font-mono text-gray-400">Contract:</span>
+                <span className="text-xs font-mono text-blue-600">{project.address.length > 20 ? `${project.address.slice(0, 10)}...${project.address.slice(-6)}` : project.address}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs font-mono text-gray-400">Chain:</span>
+                <span className="text-xs font-mono text-gray-900">{project.category === 'm/ai-agents' ? 'Base (Virtuals)' : 'Ethereum'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs font-mono text-gray-400">Status:</span>
+                <span className="text-xs font-mono px-2 py-0.5 bg-green-50 text-green-700 rounded border border-green-200">Active</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs font-mono text-gray-400">Reviews:</span>
+                <span className="text-xs font-mono text-gray-900">{project.reviewCount}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Reviews + Write Review */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Reviews List */}
           <div className="lg:col-span-2">
-            <h2 className="text-xl font-bold mb-4">
-              Reviews ({project.reviews.length})
-            </h2>
-
-            {project.reviews.length === 0 ? (
-              <div className="border border-zinc-800 rounded-xl p-8 text-center">
-                <p className="text-zinc-500">No reviews yet. Be the first!</p>
+            <div className="bg-white border border-gray-200 rounded-md">
+              <div className="px-4 py-2.5 border-b border-gray-200 bg-gray-50">
+                <h3 className="text-xs font-bold tracking-widest text-gray-400 uppercase font-mono">Reviews ({project.reviews.length})</h3>
               </div>
-            ) : (
-              <div className="space-y-4">
-                {project.reviews.map((review) => (
-                  <div
-                    key={review.id}
-                    className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-5 hover:border-zinc-700 transition-colors"
-                  >
-                    {/* Review Header */}
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-xs font-bold">
-                          {(review.reviewer.displayName || review.reviewer.address)[0].toUpperCase()}
+
+              {project.reviews.length === 0 ? (
+                <div className="text-center py-8 text-gray-400 font-mono text-sm">No reviews yet. Be the first!</div>
+              ) : (
+                <div>
+                  {project.reviews.map((review, i) => {
+                    const displayAddr = review.reviewer.address.startsWith('tg:')
+                      ? review.reviewer.displayName || `tg:${review.reviewer.address.slice(3, 7)}...`
+                      : review.reviewer.displayName || `${review.reviewer.address.slice(0, 6)}...${review.reviewer.address.slice(-4)}`
+                    const date = new Date(review.createdAt).toLocaleDateString()
+
+                    return (
+                      <div key={review.id} className={`px-4 py-3 ${i < project.reviews.length - 1 ? 'border-b border-gray-100' : ''} hover:bg-gray-50 transition-colors`}>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-bold font-mono text-gray-900">{displayAddr}</span>
+                            {review.reviewer.address.startsWith('tg:') ? (
+                              <span className="text-xs font-mono px-1.5 py-0.5 bg-sky-50 text-sky-600 rounded border border-sky-200">📱 Telegram</span>
+                            ) : (
+                              <span className="text-xs font-mono px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded border border-blue-200">🛡️ Verified Human</span>
+                            )}
+                            {review.reviewer.reputationScore && review.reviewer.reputationScore > 0 && (
+                              <span className="text-xs font-mono px-1.5 py-0.5 bg-purple-50 text-purple-600 rounded border border-purple-200">Rep: {review.reviewer.reputationScore}</span>
+                            )}
+                          </div>
+                          <span className="text-xs font-mono text-gray-400">{date}</span>
                         </div>
-                        <div>
-                          <span className="text-sm font-medium">
-                            {review.reviewer.displayName || `${review.reviewer.address.slice(0, 6)}...${review.reviewer.address.slice(-4)}`}
+
+                        <div className="flex items-center gap-0.5 mb-1.5">
+                          {[1, 2, 3, 4, 5].map((s) => (
+                            <span key={s} className={`text-sm ${s <= review.rating ? 'text-yellow-500' : 'text-gray-300'}`}>★</span>
+                          ))}
+                        </div>
+
+                        <p className="text-sm text-gray-700 font-mono leading-relaxed">{review.content}</p>
+
+                        <div className="flex items-center gap-3 mt-2 text-xs font-mono text-gray-400">
+                          <span>👍 {review.upvotes}</span>
+                          <span>👎 {review.downvotes}</span>
+                          <span className="ml-auto">
+                            <OnChainBadge reviewId={review.id} txHash={(review as any).txHash} />
                           </span>
-                          {review.reviewer.address.startsWith('tg:') ? (
-                            <span className="ml-2 text-xs bg-sky-500/20 text-sky-300 px-1.5 py-0.5 rounded inline-flex items-center gap-1">
-                              📱 via Telegram
-                            </span>
-                          ) : (
-                            <span className="ml-2 text-xs bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded inline-flex items-center gap-1">
-                              🛡️ Verified Human
-                            </span>
-                          )}
-                          {review.reviewer.reputationScore > 0 && (
-                            <span className="ml-1 text-xs bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded">
-                              Rep: {review.reviewer.reputationScore}
-                            </span>
-                          )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-1 text-xs text-zinc-600">
-                        <Clock className="w-3 h-3" />
-                        {new Date(review.createdAt).toLocaleDateString()}
-                      </div>
-                    </div>
-
-                    {/* Stars */}
-                    <div className="flex items-center gap-1 mb-2">
-                      {[1, 2, 3, 4, 5].map((s) => (
-                        <Star
-                          key={s}
-                          className={`w-4 h-4 ${
-                            s <= review.rating ? 'text-amber-400 fill-amber-400' : 'text-zinc-700'
-                          }`}
-                        />
-                      ))}
-                    </div>
-
-                    {/* Content */}
-                    <p className="text-zinc-300 text-sm leading-relaxed">{review.content}</p>
-
-                    {/* Review Votes + On-Chain Status */}
-                    <div className="flex items-center gap-3 mt-3 text-xs text-zinc-600">
-                      <span className="flex items-center gap-1">
-                        <ThumbsUp className="w-3 h-3" /> {review.upvotes}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <ThumbsDown className="w-3 h-3" /> {review.downvotes}
-                      </span>
-                      <span className="ml-auto">
-                        <OnChainBadge
-                          reviewId={review.id}
-                          txHash={(review as any).txHash}
-                        />
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Sidebar: Write Review */}
+          {/* Sidebar */}
           <div className="lg:col-span-1">
-            <div className="sticky top-24">
+            <div className="sticky top-4">
               <ReviewForm projectId={project.id} projectName={project.name} />
 
-              {/* Trust Info */}
-              <div className="mt-6 bg-zinc-900/50 border border-zinc-800 rounded-xl p-5">
-                <div className="flex items-center gap-2 mb-3">
-                  <Shield className="w-5 h-5 text-purple-400" />
-                  <h3 className="font-semibold text-sm">About Maiat Trust</h3>
-                </div>
-                <ul className="space-y-2 text-xs text-zinc-500">
+              <div className="mt-4 bg-white border border-gray-200 rounded-md p-4">
+                <h3 className="text-xs font-bold tracking-widest text-gray-400 uppercase font-mono mb-2">About Maiat Trust</h3>
+                <ul className="space-y-1.5 text-xs font-mono text-gray-500">
                   <li>🪲 Reviews cost 2 Scarab — skin in the game</li>
-                  <li>🤖 Gemini AI checks review quality</li>
-                  <li>📊 Your reputation grows with accurate reviews</li>
-                  <li>⛓️ On-chain verification on BSC</li>
+                  <li>🤖 AI checks review quality</li>
+                  <li>📊 Reputation grows with accurate reviews</li>
+                  <li>⛓️ Verified on-chain</li>
                 </ul>
+              </div>
+
+              <div className="mt-4 bg-white border border-gray-200 rounded-md p-4">
+                <h3 className="text-xs font-bold tracking-widest text-gray-400 uppercase font-mono mb-2">API Access</h3>
+                <code className="text-xs font-mono text-gray-600 bg-gray-50 px-2 py-1.5 rounded block border border-gray-100">
+                  GET /api/trust-score?project={project.name}
+                </code>
               </div>
             </div>
           </div>
         </div>
-      </div>
-    </main>
+
+        {/* Footer */}
+        <div className="mt-6 text-center text-xs font-mono text-gray-400 py-4">
+          Maiat — Verified review layer for agentic commerce ·
+          <a href="https://t.me/MaiatBot" className="text-blue-600 hover:underline ml-1">@MaiatBot</a> ·
+          <a href="https://x.com/0xmaiat" target="_blank" rel="noopener" className="text-blue-600 hover:underline ml-1">@0xmaiat</a>
+        </div>
+      </main>
+    </div>
   )
 }

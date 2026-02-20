@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { ExternalLink, Link2, Loader2, CheckCircle2, XCircle } from 'lucide-react'
 
 interface OnChainBadgeProps {
   reviewId: string
@@ -29,59 +28,37 @@ export function OnChainBadge({ reviewId, txHash, showVerifyButton = false }: OnC
     }
   }
 
-  // Already verified on-chain
   if (localTxHash) {
     return (
       <a
         href={`https://testnet.bscscan.com/tx/${localTxHash}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs px-2.5 py-1 rounded-full hover:bg-emerald-500/20 transition-colors"
-        title="Verified on BSC Testnet"
+        className="inline-flex items-center gap-1 text-xs font-mono px-2 py-0.5 bg-green-50 text-green-600 rounded border border-green-200 hover:bg-green-100 transition-colors"
       >
-        <CheckCircle2 className="w-3 h-3" />
-        On-Chain
-        <ExternalLink className="w-3 h-3" />
+        ⛓️ On-chain ↗
       </a>
     )
   }
 
-  // Show verify button
   if (showVerifyButton) {
     return (
       <div className="inline-flex items-center gap-2">
         <button
           onClick={handleVerify}
           disabled={verifying}
-          className="inline-flex items-center gap-1.5 bg-zinc-800 border border-zinc-700 text-zinc-400 text-xs px-2.5 py-1 rounded-full hover:border-purple-500/40 hover:text-purple-300 transition-colors disabled:opacity-50"
+          className="inline-flex items-center gap-1 text-xs font-mono px-2 py-0.5 bg-gray-50 text-gray-500 rounded border border-gray-200 hover:border-blue-300 hover:text-blue-600 transition-colors disabled:opacity-50"
         >
-          {verifying ? (
-            <>
-              <Loader2 className="w-3 h-3 animate-spin" />
-              Verifying...
-            </>
-          ) : (
-            <>
-              <Link2 className="w-3 h-3" />
-              Verify On-Chain
-            </>
-          )}
+          {verifying ? '⏳ Verifying...' : '🔗 Verify On-Chain'}
         </button>
-        {error && (
-          <span className="inline-flex items-center gap-1 text-xs text-red-400">
-            <XCircle className="w-3 h-3" />
-            {error}
-          </span>
-        )}
+        {error && <span className="text-xs font-mono text-red-500">❌ {error}</span>}
       </div>
     )
   }
 
-  // No tx, no button — show off-chain indicator
   return (
-    <span className="inline-flex items-center gap-1 text-xs text-zinc-600">
-      <Link2 className="w-3 h-3" />
-      Off-chain
+    <span className="inline-flex items-center gap-1 text-xs font-mono text-gray-400">
+      🔗 Off-chain
     </span>
   )
 }
