@@ -34,7 +34,7 @@ export function TopNav() {
           <Link href="/" className="flex items-center gap-2.5">
             <div className="relative w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center">
               <Image
-                src="/logo-light.png"
+                src="/maiat-rmbg.png"
                 alt="MAIAT"
                 width={40}
                 height={40}
@@ -42,7 +42,7 @@ export function TopNav() {
                 priority
               />
               <Image
-                src="/logo-dark.jpg"
+                src="/maiat-rmbg.png"
                 alt="MAIAT"
                 width={40}
                 height={40}
