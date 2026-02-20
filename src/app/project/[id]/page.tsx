@@ -365,9 +365,14 @@ export default async function ProjectPage({ params }: Props) {
                     <div className="flex items-center justify-between mb-1.5">
                       <div className="flex items-center gap-3">
                         <span className="text-sm font-bold font-mono text-gray-900 dark:text-gray-100">{displayAddr}</span>
+                        {review.reviewer.address.startsWith('tg:') ? (
+                          <span className="text-xs font-mono px-1.5 py-0.5 bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 rounded">📱 via Telegram</span>
+                        ) : (
+                          <span className="text-xs font-mono px-1.5 py-0.5 bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded">🛡️ Verified Human</span>
+                        )}
                         <span className={`text-xs font-mono ${ratingColor}`}>Rating: {review.rating}.0</span>
                         {review.txHash && (
-                          <span className="text-xs font-mono px-1.5 py-0.5 bg-blue-50 text-blue-600 rounded">On-chain ✓</span>
+                          <span className="text-xs font-mono px-1.5 py-0.5 bg-green-50 dark:bg-green-500/10 text-green-600 dark:text-green-400 rounded">On-chain ✓</span>
                         )}
                       </div>
                       <div className="flex items-center gap-3">
