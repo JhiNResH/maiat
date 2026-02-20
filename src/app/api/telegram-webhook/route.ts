@@ -6,7 +6,7 @@ import { getSimpleTrustScore } from '@/lib/trust-score'
 
 export const dynamic = 'force-dynamic'
 
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8320745684:AAE4diIOwF7XE24gPqQtF6oAkP6z3RZqmAw'
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || ''
 const WEBAPP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://maiat.vercel.app'
 
 // User state machine for review flow
