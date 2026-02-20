@@ -26,6 +26,9 @@ contract MaiatTrustConsumerTest is Test {
         uint256 newScore,
         uint256 totalReviews
     );
+    event ForwarderUpdated(address indexed oldForwarder, address indexed newForwarder);
+    event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     function setUp() public {
         consumer = new MaiatTrustConsumer(forwarder);
@@ -59,34 +62,10 @@ contract MaiatTrustConsumerTest is Test {
         assertEq(consumer.reportCount(), 0);
     }
 
-    // ─── [AUDIT] Constructor: zero forwarder accepted (known risk) ─
-
-    function test_Audit_ZeroForwarder_BricksOnReport() public {
-        // If forwarder is address(0), onReport can never be called by a real address
-        // because no EOA/contract has msg.sender == address(0) in production
-        MaiatTrustConsumer broken = new MaiatTrustConsumer(address(0));
-        assertEq(broken.forwarder(), address(0));
-
-        bytes memory report = _encodeReport(5, 80, block.timestamp);
-
-        // Any real caller (forwarder, owner, attacker) is blocked
-        vm.prank(forwarder);
-        vm.expectRevert("Only CRE forwarder");
-        broken.onReport(report);
-
-        vm.prank(owner);
-        vm.expectRevert("Only CRE forwarder");
-        broken.onReport(report);
-
-        vm.prank(attacker);
-        vm.expectRevert("Only CRE forwarder");
-        broken.onReport(report);
-
-        // Only fix is to call setForwarder() to update it (owner can still do that)
-        broken.setForwarder(forwarder);
-        vm.prank(forwarder);
-        broken.onReport(report); // now works
-        assertEq(broken.reportCount(), 1);
+    function test_Constructor_ZeroForwarderReverts() public {
+        // [FIXED] Was HIGH audit finding — now reverts at constructor
+        vm.expectRevert(MaiatTrustConsumer.MaiatTrustConsumer__ZeroAddress.selector);
+        new MaiatTrustConsumer(address(0));
     }
 
     // ─── onReport ──────────────────────────────────────────────
@@ -108,6 +87,39 @@ contract MaiatTrustConsumerTest is Test {
         assertEq(ts,          block.timestamp);
     }
 
+    function test_OnReport_MaxValidScore() public {
+        vm.prank(forwarder);
+        consumer.onReport(_encodeReport(1, 100, block.timestamp));
+        (, uint256 score,) = consumer.getLatestReport();
+        assertEq(score, 100);
+    }
+
+    function test_OnReport_ZeroScore() public {
+        vm.prank(forwarder);
+        consumer.onReport(_encodeReport(1, 0, block.timestamp));
+        (, uint256 score,) = consumer.getLatestReport();
+        assertEq(score, 0);
+    }
+
+    function test_OnReport_ScoreOver100Reverts() public {
+        // [FIXED] Was MEDIUM audit finding — now reverts
+        bytes memory report = _encodeReport(1, 101, block.timestamp);
+        vm.prank(forwarder);
+        vm.expectRevert(
+            abi.encodeWithSelector(MaiatTrustConsumer.MaiatTrustConsumer__InvalidScore.selector, 101)
+        );
+        consumer.onReport(report);
+    }
+
+    function test_OnReport_Score999Reverts() public {
+        bytes memory report = _encodeReport(1, 999, block.timestamp);
+        vm.prank(forwarder);
+        vm.expectRevert(
+            abi.encodeWithSelector(MaiatTrustConsumer.MaiatTrustConsumer__InvalidScore.selector, 999)
+        );
+        consumer.onReport(report);
+    }
+
     function test_OnReport_MultipleReports_Increments() public {
         vm.startPrank(forwarder);
         consumer.onReport(_encodeReport(5,  70, block.timestamp));
@@ -116,19 +128,14 @@ contract MaiatTrustConsumerTest is Test {
         vm.stopPrank();
 
         assertEq(consumer.reportCount(), 3);
-
-        (uint256 count, uint256 score,) = consumer.getLatestReport();
-        assertEq(count, 15);
+        (, uint256 score,) = consumer.getLatestReport();
         assertEq(score, 90);
     }
 
     function test_OnReport_StoresInMapping() public {
-        bytes memory report = _encodeReport(7, 75, 12345);
-
         vm.prank(forwarder);
-        consumer.onReport(report);
+        consumer.onReport(_encodeReport(7, 75, 12345));
 
-        // Public mapping getter returns tuple fields
         (uint256 reviewCount, uint256 avgTrustScore, uint256 ts) = consumer.reports(1);
         assertEq(reviewCount,   7);
         assertEq(avgTrustScore, 75);
@@ -137,31 +144,19 @@ contract MaiatTrustConsumerTest is Test {
 
     function test_OnReport_NotForwarder_Reverts() public {
         bytes memory report = _encodeReport(5, 80, block.timestamp);
-
-        vm.expectRevert("Only CRE forwarder");
+        vm.expectRevert(
+            abi.encodeWithSelector(MaiatTrustConsumer.MaiatTrustConsumer__NotForwarder.selector, address(this))
+        );
         consumer.onReport(report);
     }
 
     function test_OnReport_AttackerReverts() public {
         bytes memory report = _encodeReport(5, 80, block.timestamp);
-
         vm.prank(attacker);
-        vm.expectRevert("Only CRE forwarder");
+        vm.expectRevert(
+            abi.encodeWithSelector(MaiatTrustConsumer.MaiatTrustConsumer__NotForwarder.selector, attacker)
+        );
         consumer.onReport(report);
-    }
-
-    // ─── [AUDIT] onReport: no score bounds validation ──────────
-
-    function test_Audit_OnReport_NoScoreValidation() public {
-        // KNOWN RISK: avgTrustScore > 100 accepted without revert
-        // Malicious forwarder can write garbage scores on-chain
-        bytes memory report = _encodeReport(1, 999, block.timestamp);
-
-        vm.prank(forwarder);
-        consumer.onReport(report); // does NOT revert — intentional audit finding
-
-        (, uint256 score,) = consumer.getLatestReport();
-        assertEq(score, 999); // score > 100 stored unchecked
     }
 
     // ─── updateProjectTrust ────────────────────────────────────
@@ -177,18 +172,27 @@ contract MaiatTrustConsumerTest is Test {
         assertEq(totalReviews, 20);
     }
 
+    function test_UpdateProjectTrust_ScoreOver100Reverts() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(MaiatTrustConsumer.MaiatTrustConsumer__InvalidScore.selector, 101)
+        );
+        consumer.updateProjectTrust(PROJECT_A, 101, 10);
+    }
+
     function test_UpdateProjectTrust_AccumulatesReviews() public {
         consumer.updateProjectTrust(PROJECT_A, 80, 10);
-        consumer.updateProjectTrust(PROJECT_A, 85, 15); // += 15
+        consumer.updateProjectTrust(PROJECT_A, 85, 15);
 
         (uint256 score, uint256 totalReviews,) = consumer.getProjectTrust(PROJECT_A);
-        assertEq(score,        85);   // overwritten
-        assertEq(totalReviews, 25);   // accumulated
+        assertEq(score,        85);  // overwritten
+        assertEq(totalReviews, 25);  // accumulated
     }
 
     function test_UpdateProjectTrust_NotOwnerReverts() public {
         vm.prank(attacker);
-        vm.expectRevert("Only owner");
+        vm.expectRevert(
+            abi.encodeWithSelector(MaiatTrustConsumer.MaiatTrustConsumer__NotOwner.selector, attacker)
+        );
         consumer.updateProjectTrust(PROJECT_A, 80, 10);
     }
 
@@ -225,80 +229,139 @@ contract MaiatTrustConsumerTest is Test {
 
     function test_SetForwarder_Success() public {
         address newForwarder = address(0xAA);
+
+        vm.expectEmit(true, true, false, false);
+        emit ForwarderUpdated(forwarder, newForwarder);
+
         consumer.setForwarder(newForwarder);
         assertEq(consumer.forwarder(), newForwarder);
     }
 
+    function test_SetForwarder_ZeroAddressReverts() public {
+        vm.expectRevert(MaiatTrustConsumer.MaiatTrustConsumer__ZeroAddress.selector);
+        consumer.setForwarder(address(0));
+    }
+
     function test_SetForwarder_NotOwnerReverts() public {
         vm.prank(attacker);
-        vm.expectRevert("Only owner");
+        vm.expectRevert(
+            abi.encodeWithSelector(MaiatTrustConsumer.MaiatTrustConsumer__NotOwner.selector, attacker)
+        );
         consumer.setForwarder(address(0xAA));
     }
 
-    function test_SetForwarder_ChangesTakeEffect() public {
+    function test_SetForwarder_RotationWorks() public {
         address newForwarder = address(0xBB);
         consumer.setForwarder(newForwarder);
 
-        // Old forwarder can no longer call onReport
+        // Old forwarder blocked
         vm.prank(forwarder);
-        vm.expectRevert("Only CRE forwarder");
+        vm.expectRevert(
+            abi.encodeWithSelector(MaiatTrustConsumer.MaiatTrustConsumer__NotForwarder.selector, forwarder)
+        );
         consumer.onReport(_encodeReport(5, 80, block.timestamp));
 
-        // New forwarder can
+        // New forwarder works
         vm.prank(newForwarder);
         consumer.onReport(_encodeReport(5, 80, block.timestamp));
         assertEq(consumer.reportCount(), 1);
     }
 
-    // ─── transferOwnership ─────────────────────────────────────
+    // ─── Two-step ownership ────────────────────────────────────
 
-    function test_TransferOwnership_Success() public {
+    function test_TransferOwnership_StartsTransfer() public {
+        vm.expectEmit(true, true, false, false);
+        emit OwnershipTransferStarted(owner, newOwner);
+
         consumer.transferOwnership(newOwner);
-        assertEq(consumer.owner(), newOwner);
+        assertEq(consumer.pendingOwner(), newOwner);
+        assertEq(consumer.owner(),        owner); // still old owner
+    }
+
+    function test_AcceptOwnership_CompletesTransfer() public {
+        consumer.transferOwnership(newOwner);
+
+        vm.expectEmit(true, true, false, false);
+        emit OwnershipTransferred(owner, newOwner);
+
+        vm.prank(newOwner);
+        consumer.acceptOwnership();
+
+        assertEq(consumer.owner(),        newOwner);
+        assertEq(consumer.pendingOwner(), address(0));
+    }
+
+    function test_AcceptOwnership_NotPendingOwnerReverts() public {
+        consumer.transferOwnership(newOwner);
+
+        vm.prank(attacker);
+        vm.expectRevert(
+            abi.encodeWithSelector(MaiatTrustConsumer.MaiatTrustConsumer__NotPendingOwner.selector, attacker)
+        );
+        consumer.acceptOwnership();
+    }
+
+    function test_TransferOwnership_ZeroAddressReverts() public {
+        // [FIXED] Was LOW audit finding — now reverts
+        vm.expectRevert(MaiatTrustConsumer.MaiatTrustConsumer__ZeroAddress.selector);
+        consumer.transferOwnership(address(0));
     }
 
     function test_TransferOwnership_NotOwnerReverts() public {
         vm.prank(attacker);
-        vm.expectRevert("Only owner");
-        consumer.transferOwnership(attacker);
-    }
-
-    function test_TransferOwnership_OldOwnerLosesAccess() public {
+        vm.expectRevert(
+            abi.encodeWithSelector(MaiatTrustConsumer.MaiatTrustConsumer__NotOwner.selector, attacker)
+        );
         consumer.transferOwnership(newOwner);
-
-        vm.expectRevert("Only owner");
-        consumer.updateProjectTrust(PROJECT_A, 80, 10);
     }
 
-    // ─── [AUDIT] transferOwnership: one-step, typo = locked ───
+    function test_TransferOwnership_OldOwnerRetainsAccessUntilAccepted() public {
+        consumer.transferOwnership(newOwner);
+        // Old owner still works until newOwner calls acceptOwnership
+        consumer.updateProjectTrust(PROJECT_A, 80, 10);
+        assertEq(consumer.owner(), owner);
+    }
 
-    function test_Audit_TransferOwnership_NoZeroCheck() public {
-        // KNOWN RISK: transferring to address(0) loses contract control forever
-        consumer.transferOwnership(address(0));
-        assertEq(consumer.owner(), address(0)); // bricked
+    function test_TransferOwnership_OldOwnerLosesAccessAfterAccepted() public {
+        consumer.transferOwnership(newOwner);
+        vm.prank(newOwner);
+        consumer.acceptOwnership();
+
+        vm.expectRevert(
+            abi.encodeWithSelector(MaiatTrustConsumer.MaiatTrustConsumer__NotOwner.selector, owner)
+        );
+        consumer.updateProjectTrust(PROJECT_A, 80, 10);
     }
 
     // ─── Fuzz ──────────────────────────────────────────────────
 
-    function testFuzz_OnReport_AnyValues(
+    function testFuzz_OnReport_ValidScoreRange(
         uint256 reviewCount,
         uint256 avgScore,
         uint256 timestamp
     ) public {
-        bytes memory report = _encodeReport(reviewCount, avgScore, timestamp);
+        avgScore = bound(avgScore, 0, 100);
 
         vm.prank(forwarder);
-        consumer.onReport(report);
+        consumer.onReport(_encodeReport(reviewCount, avgScore, timestamp));
 
-        (, uint256 storedScore,) = consumer.getLatestReport();
-        assertEq(storedScore, avgScore); // stored as-is (no validation)
+        (, uint256 stored,) = consumer.getLatestReport();
+        assertEq(stored, avgScore);
+    }
+
+    function testFuzz_OnReport_InvalidScoreReverts(uint256 avgScore) public {
+        avgScore = bound(avgScore, 101, type(uint256).max);
+        vm.prank(forwarder);
+        vm.expectRevert(
+            abi.encodeWithSelector(MaiatTrustConsumer.MaiatTrustConsumer__InvalidScore.selector, avgScore)
+        );
+        consumer.onReport(_encodeReport(1, avgScore, block.timestamp));
     }
 
     function testFuzz_ProjectTrust_AccumulationNeverOverflows(
         uint256 r1,
         uint256 r2
     ) public {
-        // Bound to safe values to avoid uint256 overflow in totalReviews
         r1 = bound(r1, 0, type(uint128).max);
         r2 = bound(r2, 0, type(uint128).max);
 
