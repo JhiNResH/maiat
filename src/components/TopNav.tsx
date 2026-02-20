@@ -32,13 +32,21 @@ export function TopNav() {
         {/* Left: Logo */}
         <div className="flex items-center gap-10">
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="relative w-10 h-10 rounded-lg overflow-hidden">
+            <div className="relative w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center">
               <Image
-                src="/maiat.jpg"
+                src="/logo-light.png"
                 alt="MAIAT"
                 width={40}
                 height={40}
-                className="object-cover"
+                className="object-contain block dark:hidden"
+                priority
+              />
+              <Image
+                src="/logo-dark.jpg"
+                alt="MAIAT"
+                width={40}
+                height={40}
+                className="object-contain hidden dark:block"
                 priority
               />
             </div>
