@@ -17,6 +17,7 @@ export const metadata: Metadata = {
   },
   other: {
     'base:app_id': '699600ef25337829d86a5475',
+    'base:bounty_code': 'bc_cozhkj23',
   },
 }
 
