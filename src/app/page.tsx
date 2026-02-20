@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { SearchBar } from '@/components/SearchBar'
 import { CategoryTabs } from '@/components/CategoryTabs'
+import { TrustScoreTooltip } from '@/components/TrustScoreTooltip'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -81,6 +82,45 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           </div>
         </div>
 
+        {/* How It Works */}
+        <div className="bg-white dark:bg-[#1a1b23] border border-gray-200 dark:border-gray-700 rounded-md mb-4 p-6">
+          <h2 className="text-center text-sm font-bold font-mono text-gray-900 dark:text-gray-100 mb-6 tracking-wide">
+            HOW IT WORKS
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Step 1 */}
+            <div className="text-center">
+              <div className="text-3xl mb-3">🔍</div>
+              <div className="font-mono text-xs font-bold text-gray-900 dark:text-gray-100 mb-2 tracking-wide">
+                STEP 1: DISCOVER
+              </div>
+              <div className="font-mono text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                Ask our bot or browse for trusted recommendations
+              </div>
+            </div>
+            {/* Step 2 */}
+            <div className="text-center">
+              <div className="text-3xl mb-3">✅</div>
+              <div className="font-mono text-xs font-bold text-gray-900 dark:text-gray-100 mb-2 tracking-wide">
+                STEP 2: VERIFY
+              </div>
+              <div className="font-mono text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                AI + on-chain verification ensures authentic reviews
+              </div>
+            </div>
+            {/* Step 3 */}
+            <div className="text-center">
+              <div className="text-3xl mb-3">✍️</div>
+              <div className="font-mono text-xs font-bold text-gray-900 dark:text-gray-100 mb-2 tracking-wide">
+                STEP 3: REVIEW
+              </div>
+              <div className="font-mono text-xs text-gray-600 dark:text-gray-400 leading-relaxed">
+                Share your experience, earn reputation
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Category Tabs */}
         <CategoryTabs categories={CATEGORIES.map(c => ({ key: c.key, label: c.label }))} activeKey={activeCat.key} />
 
@@ -131,10 +171,13 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                       <span className="text-xs font-mono px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-gray-600 dark:text-gray-300">{categoryLabel}</span>
                     </td>
                     <td className="px-4 py-2.5">
-                      <div className="flex items-center gap-1.5">
-                        <div className={`w-0.5 h-4 rounded-full ${barColor}`} />
-                        <span className={`text-sm font-bold font-mono ${scoreColor}`}>{trustScore}</span>
-                      </div>
+                      <TrustScoreTooltip
+                        trustScore={trustScore}
+                        reviewCount={project.reviewCount}
+                        avgRating={project.avgRating}
+                        scoreColor={scoreColor}
+                        barColor={barColor}
+                      />
                     </td>
                     <td className="px-4 py-2.5 text-sm text-gray-600 dark:text-gray-300 font-mono">{project.reviewCount}</td>
                     <td className="px-4 py-2.5 text-sm text-gray-600 dark:text-gray-300 font-mono">{project.avgRating.toFixed(1)}</td>

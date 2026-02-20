@@ -13,6 +13,7 @@
   "dependencies": {
     "@0glabs/0g-serving-broker": "^0.7.1",
     "@google/generative-ai": "^0.24.1",
+    "@hashgraph/sdk": "^2.80.0",
     "@prisma/client": "^5.22.0",
     "@privy-io/node": "^0.9.0",
     "@privy-io/react-auth": "^1.95.0",
