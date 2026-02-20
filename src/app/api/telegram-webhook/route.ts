@@ -3,6 +3,12 @@ import { prisma } from '@/lib/prisma'
 import { verifyReviewWith0G } from '@/lib/0g-compute'
 import { submitReviewAttestation, hashReviewContent } from '@/lib/hedera'
 import { getSimpleTrustScore } from '@/lib/trust-score'
+import { PrivyClient } from '@privy-io/server-auth'
+
+const privy = new PrivyClient(
+  process.env.NEXT_PUBLIC_PRIVY_APP_ID!,
+  process.env.PRIVY_APP_SECRET!,
+)
 
 export const dynamic = 'force-dynamic'
 
@@ -233,13 +239,42 @@ async function handleReviewFlow(chatId: number, userId: number, text: string, us
 
     await sendMessage(chatId, '🔄 <b>Submitting & verifying your review...</b>')
 
-    // 1. Create user if needed
+    // 1. Create user if needed — auto-generate Privy embedded wallet
     const tgAddress = `tg:${userId}`
     let user = await prisma.user.findUnique({ where: { address: tgAddress } })
     if (!user) {
+      // Try to create Privy user with embedded wallet
+      let walletAddress: string | null = null
+      try {
+        // Check if Privy user already exists
+        let privyUser = await privy.getUserByTelegramUserId(String(userId))
+        if (!privyUser) {
+          privyUser = await privy.importUser({
+            linkedAccounts: [{ type: 'telegram' as const, telegramUserId: String(userId), firstName: username }],
+            createEthereumWallet: true,
+          })
+        }
+        const embeddedWallet = privyUser.linkedAccounts.find(
+          (a: any) => a.type === 'wallet' && a.walletClientType === 'privy'
+        )
+        if (embeddedWallet && 'address' in embeddedWallet) {
+          walletAddress = embeddedWallet.address as string
+        }
+        console.log(`[Privy] User ${privyUser.id} wallet ${walletAddress}`)
+      } catch (e: any) {
+        console.error('[Privy] wallet creation failed:', e.message)
+      }
+
       user = await prisma.user.create({
-        data: { address: tgAddress, displayName: username ? `@${username}` : `TG:${userId}` }
+        data: {
+          address: walletAddress || tgAddress,
+          displayName: username ? `@${username}` : `TG:${userId}`,
+        }
       })
+
+      if (walletAddress) {
+        await sendMessage(chatId, `🔗 <b>Wallet auto-created!</b>\n\n🏠 Address: <code>${walletAddress}</code>\n\nThis is your Maiat wallet, linked to your Telegram. All reviews and reputation are tied to this address.`)
+      }
     }
 
     // 2. Create review
