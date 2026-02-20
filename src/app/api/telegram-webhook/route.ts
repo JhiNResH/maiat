@@ -331,7 +331,7 @@ async function handleReviewFlow(chatId: number, userId: number, text: string, us
 
     // 7. Send verification card
     const stars = '⭐'.repeat(state.rating)
-    const resultText = `✅ <b>Review Published & Verified!</b>\n\n📝 <b>${state.projectName}</b>\n${stars}\n"<i>${text.slice(0, 200)}${text.length > 200 ? '...' : ''}</i>"\n— @${username}${verificationText}${kiteText}\n\n🌐 <a href="${WEBAPP_URL}">View on Maiat</a>`
+    const resultText = `✅ <b>Review Published & Verified!</b>\n\n📝 <b>${state.projectName}</b>\n${stars}\n"<i>${text.slice(0, 200)}${text.length > 200 ? '...' : ''}</i>"\n— @${username}${verificationText}${kiteText}${hederaText}\n\n🌐 <a href="${WEBAPP_URL}">View on Maiat</a>`
 
     await sendMessage(chatId, resultText, {
       inline_keyboard: [
