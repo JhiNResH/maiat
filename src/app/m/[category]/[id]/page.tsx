@@ -1,11 +1,54 @@
 import { prisma } from '@/lib/prisma'
 import { notFound } from 'next/navigation'
 import { getSimpleTrustScore } from '@/lib/trust-score'
+import { getMarketData, formatNumber, formatPrice } from '@/lib/market-data'
 import { VoteButtons } from '@/components/VoteButtons'
 import { OnChainBadge } from '@/components/OnChainBadge'
 import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
+
+// Generate AI summary via Gemini
+async function getAISummary(projectName: string, reviews: any[], category?: string, description?: string, website?: string, address?: string): Promise<string> {
+  try {
+    const { GoogleGenerativeAI } = await import('@google/generative-ai')
+    const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || '')
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-2.0-flash',
+      tools: [{ googleSearch: {} } as any],
+    })
+
+    const type = category === 'm/ai-agents' ? 'AI agent' : category === 'm/defi' ? 'DeFi protocol' : 'business'
+    const context = [
+      `Project: ${projectName} (${type})`,
+      description ? `Description: ${description}` : '',
+      website ? `Website: ${website}` : '',
+      address ? `Contract: ${address}` : '',
+    ].filter(Boolean).join('\n')
+
+    const baseInstructions = `You are a crypto analyst. Be concise. Use this EXACT format (no markdown headers, no bullet lists):
+
+SUMMARY: [1-2 sentences max]
+FUNDING: [amount raised, investors — or "No public data"]
+STRENGTHS: [2-3 short points separated by " | "]
+RISKS: [2-3 short points separated by " | "]
+
+Keep total response under 200 words. No intro, no disclaimers.`
+
+    let prompt: string
+    if (reviews.length === 0) {
+      prompt = `${baseInstructions}\n\nResearch "${projectName}".\n\n${context}`
+    } else {
+      const reviewTexts = reviews.slice(0, 5).map(r => `${r.rating}/5: "${r.content.slice(0, 100)}"`).join('\n')
+      prompt = `${baseInstructions}\n\nResearch "${projectName}" considering these reviews:\n${reviewTexts}\n\n${context}`
+    }
+
+    const result = await model.generateContent(prompt)
+    return result.response.text()
+  } catch (e) {
+    return 'AI analysis temporarily unavailable.'
+  }
+}
 
 export default async function ProjectDetailPage({
   params,
@@ -31,7 +74,6 @@ export default async function ProjectDetailPage({
   const scoreColor = trustScore >= 80 ? 'text-green-600' : trustScore >= 50 ? 'text-yellow-600' : 'text-red-600'
   const barColor = trustScore >= 80 ? 'bg-green-500' : trustScore >= 50 ? 'bg-yellow-500' : 'bg-red-500'
   const riskLevel = trustScore >= 80 ? 'Low' : trustScore >= 50 ? 'Medium' : 'High'
-  const riskColor = trustScore >= 80 ? 'text-green-600' : trustScore >= 50 ? 'text-yellow-600' : 'text-red-600'
   const categoryLabel = project.category === 'm/ai-agents' ? 'AI Agent' : project.category === 'm/defi' ? 'DeFi' : 'Coffee'
   const categorySlug = project.category.replace('m/', '')
 
@@ -41,6 +83,20 @@ export default async function ProjectDetailPage({
     if (r.rating >= 1 && r.rating <= 5) dist[r.rating - 1]++
   })
   const maxDist = Math.max(...dist, 1)
+
+  // Rating trend (last 10 reviews, oldest to newest)
+  const trendReviews = [...project.reviews].reverse().slice(-10)
+  const trendPoints = trendReviews.map((r, i) => {
+    const x = (i / Math.max(trendReviews.length - 1, 1)) * 100
+    const y = 100 - (r.rating / 5) * 100
+    return `${x},${y}`
+  }).join(' ')
+
+  // Fetch AI summary + market data in parallel
+  const [aiSummary, marketData] = await Promise.all([
+    getAISummary(project.name, project.reviews, project.category, project.description || '', project.website || '', project.address),
+    getMarketData(project.name, project.address, project.category),
+  ])
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -68,7 +124,6 @@ export default async function ProjectDetailPage({
         {/* Project Header Card */}
         <div className="bg-white border border-gray-200 rounded-md p-5 mb-4">
           <div className="flex items-start gap-4">
-            {/* Logo */}
             {project.image ? (
               <img src={project.image} alt={project.name} className="w-14 h-14 rounded-lg border border-gray-200" />
             ) : (
@@ -77,7 +132,6 @@ export default async function ProjectDetailPage({
               </div>
             )}
 
-            {/* Info */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3 flex-wrap mb-1">
                 <h1 className="text-2xl font-bold font-mono text-gray-900">{project.name}</h1>
@@ -92,25 +146,20 @@ export default async function ProjectDetailPage({
               )}
 
               <div className="flex items-center gap-6 flex-wrap">
-                {/* Trust Score */}
                 <div className="flex items-center gap-2">
                   <div className={`w-1 h-6 rounded-full ${barColor}`} />
                   <span className={`text-2xl font-bold font-mono ${scoreColor}`}>{trustScore}</span>
                   <span className="text-xs font-mono text-gray-400">/100</span>
                 </div>
 
-                {/* Rating */}
                 <div className="flex items-center gap-1.5">
                   <span className="text-sm font-mono text-gray-600">{'⭐'.repeat(Math.round(project.avgRating))}</span>
                   <span className="text-sm font-bold font-mono text-gray-900">{project.avgRating.toFixed(1)}</span>
                   <span className="text-xs font-mono text-gray-400">({project.reviewCount} reviews)</span>
                 </div>
 
-                {/* Links */}
                 {project.website && (
-                  <a href={project.website} target="_blank" rel="noopener" className="text-xs font-mono text-blue-600 hover:underline flex items-center gap-1">
-                    🔗 Website
-                  </a>
+                  <a href={project.website} target="_blank" rel="noopener" className="text-xs font-mono text-blue-600 hover:underline">🔗 Website</a>
                 )}
 
                 <VoteButtons projectId={project.id} projectName={project.name} />
@@ -119,9 +168,78 @@ export default async function ProjectDetailPage({
           </div>
         </div>
 
-        {/* Overview Grid */}
+        {/* Market Data */}
+        <div className="bg-white border border-gray-200 rounded-md mb-4">
+          <div className="px-4 py-2 border-b border-gray-200">
+            <h3 className="text-xs font-bold tracking-widest text-gray-400 uppercase font-mono">📊 Market Data</h3>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-gray-100">
+            <div className="p-3 text-center">
+              <div className="text-xs font-mono text-gray-400 mb-1">Price</div>
+              <div className="text-sm font-bold font-mono text-gray-900">
+                {formatPrice(marketData.price)}
+                {marketData.priceChange24h ? (
+                  <span className={`ml-1 text-xs ${marketData.priceChange24h >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    {marketData.priceChange24h >= 0 ? '+' : ''}{marketData.priceChange24h.toFixed(1)}%
+                  </span>
+                ) : null}
+              </div>
+            </div>
+            <div className="p-3 text-center">
+              <div className="text-xs font-mono text-gray-400 mb-1">Market Cap</div>
+              <div className="text-sm font-bold font-mono text-gray-900">{formatNumber(marketData.marketCap || marketData.fdv)}</div>
+            </div>
+            <div className="p-3 text-center">
+              <div className="text-xs font-mono text-gray-400 mb-1">{marketData.tvl ? 'TVL' : 'Liquidity'}</div>
+              <div className="text-sm font-bold font-mono text-gray-900">{formatNumber(marketData.tvl || marketData.liquidity)}</div>
+            </div>
+            <div className="p-3 text-center">
+              <div className="text-xs font-mono text-gray-400 mb-1">24h Volume</div>
+              <div className="text-sm font-bold font-mono text-gray-900">{formatNumber(marketData.volume24h)}</div>
+            </div>
+          </div>
+          <div className="px-4 py-2 border-t border-gray-100 flex items-center gap-4 text-xs font-mono">
+            <span className="flex items-center gap-1">
+              {marketData.audited ? <><span className="text-green-600">✅</span> Audited</> : <><span className="text-yellow-600">⚠️</span> Not audited</>}
+            </span>
+            {marketData.dexUrl && (
+              <a href={marketData.dexUrl} target="_blank" rel="noopener" className="text-blue-600 hover:underline">DEXScreener ↗</a>
+            )}
+            <span className="ml-auto text-gray-400">Data: DEXScreener · DeFiLlama · CoinGecko</span>
+          </div>
+        </div>
+
+        {/* AI Analysis */}
+        <div className="bg-white border border-gray-200 rounded-md mb-4 p-4">
+          <h3 className="text-xs font-bold tracking-widest text-gray-400 uppercase font-mono mb-2 flex items-center gap-2">
+            <span>🤖 AI Analysis</span>
+            <span className="text-xs font-normal text-gray-400">(Powered by Gemini)</span>
+          </h3>
+          <div className="text-sm font-mono text-gray-700 leading-relaxed space-y-2">
+            {aiSummary.split('\n').filter((l: string) => l.trim()).map((line: string, i: number) => {
+              const [label, ...rest] = line.split(':')
+              const value = rest.join(':').trim()
+              if (['SUMMARY', 'FUNDING', 'STRENGTHS', 'RISKS'].includes(label.trim().toUpperCase())) {
+                return (
+                  <div key={i} className="flex gap-2">
+                    <span className={`text-xs font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                      label.trim().toUpperCase() === 'RISKS' ? 'bg-red-50 text-red-600' :
+                      label.trim().toUpperCase() === 'STRENGTHS' ? 'bg-green-50 text-green-600' :
+                      label.trim().toUpperCase() === 'FUNDING' ? 'bg-blue-50 text-blue-600' :
+                      'bg-purple-50 text-purple-600'
+                    }`}>{label.trim()}</span>
+                    <span className="text-gray-600">{value}</span>
+                  </div>
+                )
+              }
+              return <p key={i} className="text-gray-600">{line}</p>
+            })}
+          </div>
+        </div>
+
+        {/* Rating Distribution + Trend */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-          {/* Rating Distribution */}
+          {/* Distribution */}
           <div className="bg-white border border-gray-200 rounded-md p-4">
             <h3 className="text-xs font-bold tracking-widest text-gray-400 uppercase font-mono mb-3">Rating Distribution</h3>
             <div className="space-y-1.5">
@@ -140,31 +258,34 @@ export default async function ProjectDetailPage({
             </div>
           </div>
 
-          {/* Project Details */}
+          {/* Trend Chart */}
           <div className="bg-white border border-gray-200 rounded-md p-4">
-            <h3 className="text-xs font-bold tracking-widest text-gray-400 uppercase font-mono mb-3">Details</h3>
-            <div className="space-y-2.5">
-              <div className="flex justify-between">
-                <span className="text-xs font-mono text-gray-400">Contract:</span>
-                <span className="text-xs font-mono text-blue-600">{project.address.length > 20 ? `${project.address.slice(0, 10)}...${project.address.slice(-6)}` : project.address}</span>
+            <h3 className="text-xs font-bold tracking-widest text-gray-400 uppercase font-mono mb-3">Rating Trend</h3>
+            {trendReviews.length < 2 ? (
+              <div className="h-20 flex items-center justify-center text-xs font-mono text-gray-400">Need more reviews for trend</div>
+            ) : (
+              <div className="relative h-20">
+                <div className="absolute left-0 top-0 text-[10px] font-mono text-gray-400">5</div>
+                <div className="absolute left-0 bottom-0 text-[10px] font-mono text-gray-400">1</div>
+                <div className="absolute left-4 right-0 top-0 bottom-0">
+                  {[0, 25, 50, 75, 100].map(y => (
+                    <div key={y} className="absolute w-full border-t border-gray-100" style={{ top: `${y}%` }} />
+                  ))}
+                </div>
+                <svg className="absolute left-4 right-0 top-0 bottom-0 w-[calc(100%-16px)] h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+                  <polyline points={trendPoints} fill="none" stroke="#22c55e" strokeWidth="2" vectorEffect="non-scaling-stroke" />
+                  {trendReviews.map((r, i) => {
+                    const x = (i / Math.max(trendReviews.length - 1, 1)) * 100
+                    const y = 100 - (r.rating / 5) * 100
+                    return <circle key={i} cx={x} cy={y} r="3" fill="#22c55e" vectorEffect="non-scaling-stroke" />
+                  })}
+                </svg>
               </div>
-              <div className="flex justify-between">
-                <span className="text-xs font-mono text-gray-400">Chain:</span>
-                <span className="text-xs font-mono text-gray-900">{project.category === 'm/ai-agents' ? 'Base (Virtuals)' : 'Ethereum'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-xs font-mono text-gray-400">Status:</span>
-                <span className="text-xs font-mono px-2 py-0.5 bg-green-50 text-green-700 rounded border border-green-200">Active</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-xs font-mono text-gray-400">Reviews:</span>
-                <span className="text-xs font-mono text-gray-900">{project.reviewCount}</span>
-              </div>
-            </div>
+            )}
           </div>
         </div>
 
-        {/* Reviews + Write Review */}
+        {/* Reviews + Sidebar */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Reviews List */}
           <div className="lg:col-span-2">
@@ -226,7 +347,6 @@ export default async function ProjectDetailPage({
           {/* Sidebar */}
           <div className="lg:col-span-1">
             <div className="sticky top-4">
-              {/* Review via Telegram */}
               <div className="bg-white border border-gray-200 rounded-md p-5 text-center">
                 <h3 className="text-sm font-bold font-mono text-gray-900 mb-2">Review {project.name}</h3>
                 <p className="text-xs font-mono text-gray-500 mb-4">Write verified reviews through our Telegram bot. AI-checked + on-chain verified.</p>
@@ -238,6 +358,24 @@ export default async function ProjectDetailPage({
                 >
                   ✍️ Review on Telegram
                 </a>
+              </div>
+
+              <div className="mt-4 bg-white border border-gray-200 rounded-md p-4">
+                <h3 className="text-xs font-bold tracking-widest text-gray-400 uppercase font-mono mb-2">Details</h3>
+                <div className="space-y-2.5">
+                  <div className="flex justify-between">
+                    <span className="text-xs font-mono text-gray-400">Contract:</span>
+                    <span className="text-xs font-mono text-blue-600">{project.address.length > 20 ? `${project.address.slice(0, 10)}...${project.address.slice(-6)}` : project.address}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-xs font-mono text-gray-400">Chain:</span>
+                    <span className="text-xs font-mono text-gray-900">{project.category === 'm/ai-agents' ? 'Base (Virtuals)' : 'Ethereum'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-xs font-mono text-gray-400">Status:</span>
+                    <span className="text-xs font-mono px-2 py-0.5 bg-green-50 text-green-700 rounded border border-green-200">Active</span>
+                  </div>
+                </div>
               </div>
 
               <div className="mt-4 bg-white border border-gray-200 rounded-md p-4">
