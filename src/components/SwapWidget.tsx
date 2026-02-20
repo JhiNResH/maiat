@@ -56,7 +56,31 @@ function TokenModal({ open, onClose, onSelect, exclude }: { open: boolean; onClo
   )
 }
 
-interface QuoteResult { allowed: boolean; trustScore?: number; warning?: string; quote?: any; error?: string }
+interface QuoteResult {
+  allowed: boolean
+  trustScore?: number
+  tokenName?: string
+  tokenReviews?: number
+  tokenRating?: number
+  riskLevel?: string
+  warning?: string
+  quote?: any
+  error?: string
+  userReputation?: {
+    trustLevel: string
+    reputationScore: number
+    scarabPoints: number
+    totalReviews: number
+    feeTier: number
+    feeDiscount: string
+  }
+  fees?: {
+    baseFee: string
+    effectiveFee: string
+    discount: string
+    saved: string | null
+  }
+}
 
 export function SwapWidget() {
   const { authenticated, user, login, logout } = usePrivy()
@@ -143,21 +167,50 @@ export function SwapWidget() {
             </div>
           </div>
 
-          {/* Result */}
+          {/* Trust Score + Reputation Result */}
           {result && (
-            <div className={`mt-2 rounded-2xl p-3 flex items-start gap-3 ${
-              result.allowed ? result.warning ? 'bg-yellow-500/10 border border-yellow-500/20' : 'bg-green-500/10 border border-green-500/20'
-              : 'bg-red-500/10 border border-red-500/20'}`}>
-              {result.allowed ? (result.warning ? <AlertTriangle className="w-4 h-4 text-yellow-400 mt-0.5 shrink-0" /> : <Check className="w-4 h-4 text-green-400 mt-0.5 shrink-0" />) : <Shield className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
+            <div className="mt-2 space-y-1.5">
+              {/* Token Trust */}
+              <div className={`rounded-2xl p-3 ${
+                result.allowed ? result.warning ? 'bg-yellow-500/10 border border-yellow-500/20' : 'bg-green-500/10 border border-green-500/20'
+                : 'bg-red-500/10 border border-red-500/20'}`}>
+                <div className="flex items-center gap-2 mb-1">
+                  {result.allowed ? (result.warning ? <AlertTriangle className="w-3.5 h-3.5 text-yellow-400 shrink-0" /> : <Check className="w-3.5 h-3.5 text-green-400 shrink-0" />) : <Shield className="w-3.5 h-3.5 text-red-400 shrink-0" />}
                   <span className={`text-sm font-semibold ${result.allowed ? result.warning ? 'text-yellow-400' : 'text-green-400' : 'text-red-400'}`}>
-                    {result.allowed ? (result.warning ? 'Proceed with caution' : 'Safe to swap') : 'Swap blocked'}
+                    {result.tokenName || 'Token'}: {result.trustScore}/100
                   </span>
-                  {result.trustScore !== undefined && <span className="text-gray-400 text-xs shrink-0">Trust {result.trustScore}/100</span>}
+                  {result.tokenReviews !== undefined && (
+                    <span className="text-gray-500 dark:text-[#6b6b70] text-[10px] ml-auto">{result.tokenReviews} reviews · {(result.tokenRating || 0).toFixed(1)}★</span>
+                  )}
                 </div>
-                {(result.warning || result.error) && <p className="text-xs text-gray-500 mt-1">{result.warning || result.error}</p>}
+                {(result.warning || result.error) && <p className="text-[11px] text-gray-500 dark:text-[#8b8b90] pl-5">{result.warning || result.error}</p>}
               </div>
+
+              {/* User Reputation + Fees */}
+              {result.userReputation && result.fees && (
+                <div className="rounded-2xl p-3 bg-blue-500/5 border border-blue-500/15">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400">
+                        {result.userReputation.trustLevel.toUpperCase()}
+                      </span>
+                      <span className="text-xs text-gray-400 dark:text-[#8b8b90]">
+                        Rep: {result.userReputation.reputationScore} · 🪲 {result.userReputation.scarabPoints}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] font-mono">
+                    <span className="text-gray-500 dark:text-[#6b6b70]">
+                      Fee: <span className={result.userReputation.feeTier < 0.5 ? 'text-green-400' : 'text-gray-300 dark:text-white'}>{result.fees.effectiveFee}</span>
+                      {result.fees.saved && <span className="text-green-400 ml-1">({result.fees.saved})</span>}
+                    </span>
+                    <span className="text-gray-500 dark:text-[#6b6b70]">{result.fees.discount}</span>
+                  </div>
+                  {result.userReputation.trustLevel === 'new' && (
+                    <p className="text-[10px] text-gray-500 dark:text-[#6b6b70] mt-1.5">💡 Write reviews to earn Scarab points and unlock lower fees</p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
