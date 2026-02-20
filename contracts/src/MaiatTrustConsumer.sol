@@ -9,6 +9,13 @@ pragma solidity ^0.8.19;
  *      aggregate trust scores on-chain via this consumer.
  *
  * Hackathon: Chainlink Convergence (CRE & AI track)
+ *
+ * Security fixes applied (post-audit):
+ * - [HIGH]   Zero address validation on constructor, setForwarder, transferOwnership
+ * - [MEDIUM] avgTrustScore bounded 0-100 in onReport
+ * - [MEDIUM] Events added for setForwarder and transferOwnership
+ * - [LOW]    Two-step ownership transfer (pendingOwner pattern)
+ * - [LOW]    Custom errors replacing require strings
  */
 contract MaiatTrustConsumer {
     // ─── Structs ─────────────────────────────────────────────────────────
@@ -29,14 +36,22 @@ contract MaiatTrustConsumer {
     // ─── State ───────────────────────────────────────────────────────────
 
     address public owner;
-    address public forwarder;  // CRE forwarder address
+    address public pendingOwner;  // two-step ownership
+    address public forwarder;     // CRE forwarder address
 
     TrustReport public latestReport;
     uint256 public reportCount;
     mapping(uint256 => TrustReport) public reports;
 
-    // Project-level trust tracking
     mapping(bytes32 => ProjectTrust) public projectTrust;
+
+    // ─── Errors ──────────────────────────────────────────────────────────
+
+    error MaiatTrustConsumer__NotForwarder(address caller);
+    error MaiatTrustConsumer__NotOwner(address caller);
+    error MaiatTrustConsumer__NotPendingOwner(address caller);
+    error MaiatTrustConsumer__ZeroAddress();
+    error MaiatTrustConsumer__InvalidScore(uint256 score);
 
     // ─── Events ──────────────────────────────────────────────────────────
 
@@ -46,28 +61,31 @@ contract MaiatTrustConsumer {
         uint256 avgTrustScore,
         uint256 timestamp
     );
-
     event ProjectTrustUpdated(
         bytes32 indexed projectId,
         uint256 newScore,
         uint256 totalReviews
     );
+    event ForwarderUpdated(address indexed oldForwarder, address indexed newForwarder);
+    event OwnershipTransferStarted(address indexed previousOwner, address indexed newOwner);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
     // ─── Modifiers ───────────────────────────────────────────────────────
 
     modifier onlyForwarder() {
-        require(msg.sender == forwarder, "Only CRE forwarder");
+        if (msg.sender != forwarder) revert MaiatTrustConsumer__NotForwarder(msg.sender);
         _;
     }
 
     modifier onlyOwner() {
-        require(msg.sender == owner, "Only owner");
+        if (msg.sender != owner) revert MaiatTrustConsumer__NotOwner(msg.sender);
         _;
     }
 
     // ─── Constructor ─────────────────────────────────────────────────────
 
     constructor(address _forwarder) {
+        if (_forwarder == address(0)) revert MaiatTrustConsumer__ZeroAddress();
         owner = msg.sender;
         forwarder = _forwarder;
     }
@@ -80,6 +98,10 @@ contract MaiatTrustConsumer {
      */
     function onReport(bytes calldata report) external onlyForwarder {
         TrustReport memory trustReport = abi.decode(report, (TrustReport));
+
+        // [AUDIT FIX] Validate score is within bounds
+        if (trustReport.avgTrustScore > 100)
+            revert MaiatTrustConsumer__InvalidScore(trustReport.avgTrustScore);
 
         reportCount++;
         reports[reportCount] = trustReport;
@@ -94,14 +116,15 @@ contract MaiatTrustConsumer {
     }
 
     /**
-     * @notice Update trust score for a specific project
-     * @dev Called by the owner or a secondary CRE workflow for per-project updates
+     * @notice Update trust score for a specific project (owner or CRE secondary workflow)
      */
     function updateProjectTrust(
         bytes32 _projectId,
         uint256 _trustScore,
         uint256 _reviewCount
     ) external onlyOwner {
+        if (_trustScore > 100) revert MaiatTrustConsumer__InvalidScore(_trustScore);
+
         ProjectTrust storage pt = projectTrust[_projectId];
         pt.currentTrustScore = _trustScore;
         pt.totalReviews += _reviewCount;
@@ -136,11 +159,35 @@ contract MaiatTrustConsumer {
 
     // ─── Admin ───────────────────────────────────────────────────────────
 
+    /**
+     * @notice Update the CRE forwarder address
+     * @dev Call this after `cre login` to set the real CRE forwarder
+     */
     function setForwarder(address _forwarder) external onlyOwner {
+        if (_forwarder == address(0)) revert MaiatTrustConsumer__ZeroAddress();
+        address old = forwarder;
         forwarder = _forwarder;
+        emit ForwarderUpdated(old, _forwarder);
     }
 
+    /**
+     * @notice Initiate two-step ownership transfer
+     * @dev New owner must call acceptOwnership() to complete
+     */
     function transferOwnership(address _newOwner) external onlyOwner {
-        owner = _newOwner;
+        if (_newOwner == address(0)) revert MaiatTrustConsumer__ZeroAddress();
+        pendingOwner = _newOwner;
+        emit OwnershipTransferStarted(owner, _newOwner);
+    }
+
+    /**
+     * @notice Complete ownership transfer (called by pending owner)
+     */
+    function acceptOwnership() external {
+        if (msg.sender != pendingOwner) revert MaiatTrustConsumer__NotPendingOwner(msg.sender);
+        address old = owner;
+        owner = pendingOwner;
+        pendingOwner = address(0);
+        emit OwnershipTransferred(old, owner);
     }
 }
