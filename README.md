@@ -88,7 +88,7 @@ Next person asks → Your verified review helps them decide
 - **How:** Users prove humanity via Base Verify Mini App → "Verified Human" badge
 - **Endpoint:** `POST /api/verify-base`
 - **App ID:** `699600ef25337829d86a5475`
-- **Chain:** Base Mainnet (8453)
+- **Chain:** Base Sepolia (84532)
 
 ### Hedera Consensus Service — Immutable Attestations
 - **What:** Every verified review creates an immutable HCS attestation
