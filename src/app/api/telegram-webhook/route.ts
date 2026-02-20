@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyReviewWith0G } from '@/lib/0g-compute'
 import { submitReviewAttestation, hashReviewContent } from '@/lib/hedera'
+import { getSimpleTrustScore } from '@/lib/trust-score'
 
 export const dynamic = 'force-dynamic'
 
@@ -49,6 +50,12 @@ export async function POST(request: NextRequest) {
       await showProjectsForReview(chatId)
     } else if (text.startsWith('/swap')) {
       await handleSwap(chatId, text)
+    } else if (text.startsWith('/trust') || text.startsWith('/score')) {
+      await handleTrustQuery(chatId, text)
+    } else if (text.startsWith('/reputation') || text.startsWith('/profile')) {
+      await handleReputation(chatId, userId)
+    } else if (text.startsWith('/search')) {
+      await handleSearch(chatId, text)
     } else if (text.startsWith('/help')) {
       await sendHelp(chatId)
     } else {
@@ -70,7 +77,7 @@ export async function POST(request: NextRequest) {
 }
 
 async function sendWelcome(chatId: number) {
-  const text = `☕ <b>Welcome to Maiat</b>\nThe trust score layer for agentic commerce.\n\n🔍 <b>/recommend coffee</b> — Find the best coffee\n✍️ <b>/review</b> — Write a verified review\n🔄 <b>/swap ETH USDC 0.1</b> — Trust-gated swap\n❓ <b>/help</b> — How it works\n\nOr just ask me: <i>"Which coffee shop is the best?"</i>`
+  const text = `🪲 <b>Welcome to Maiat</b>\nThe trust score layer for agentic commerce.\n\n🔍 <b>/recommend coffee</b> — Find the best\n✍️ <b>/review</b> — Write a verified review\n🔄 <b>/swap ETH USDC 0.1</b> — Trust-gated swap\n🛡️ <b>/trust DEGEN</b> — Check token trust score\n👤 <b>/reputation</b> — Your rep + fee tier\n🔎 <b>/search uniswap</b> — Search projects\n❓ <b>/help</b> — How it works\n\nOr just ask me anything naturally!`
 
   await sendMessage(chatId, text, {
     inline_keyboard: [
@@ -426,6 +433,145 @@ async function handleSwap(chatId: number, text: string) {
   }
 }
 
+async function handleTrustQuery(chatId: number, text: string) {
+  const query = text.replace(/^\/(trust|score)\s*/i, '').trim()
+  if (!query) {
+    await sendMessage(chatId, '🛡️ Usage: <code>/trust DEGEN</code> or <code>/trust uniswap</code>')
+    return
+  }
+
+  // Search by name or slug
+  const project = await prisma.project.findFirst({
+    where: {
+      OR: [
+        { name: { contains: query, mode: 'insensitive' } },
+        { slug: { contains: query.toLowerCase() } },
+      ]
+    },
+    include: { reviews: { take: 3, orderBy: { createdAt: 'desc' }, include: { reviewer: true } } }
+  })
+
+  if (!project) {
+    await sendMessage(chatId, `❌ No project found for "<b>${query}</b>".\n\nTry /search ${query}`)
+    return
+  }
+
+  const score = getSimpleTrustScore(project.name, project.category, project.avgRating, project.reviewCount)
+  const riskLevel = score >= 80 ? '🟢 Low Risk' : score >= 50 ? '🟡 Medium Risk' : '🔴 High Risk'
+  const stars = project.avgRating > 0 ? '⭐'.repeat(Math.round(project.avgRating)) : 'No ratings'
+
+  let msg = `🛡️ <b>Trust Score: ${project.name}</b>\n\n`
+  msg += `📊 Score: <b>${score}/100</b> ${riskLevel}\n`
+  msg += `⭐ Rating: ${stars} (${project.avgRating.toFixed(1)})\n`
+  msg += `📝 Reviews: ${project.reviewCount}\n`
+  msg += `📁 Category: ${project.category.replace('m/', '')}\n`
+
+  if (score < 30) msg += `\n🚫 <b>This token would be BLOCKED on trust-gated swap.</b>\n`
+  else if (score < 60) msg += `\n⚠️ <b>Moderate trust — swap with caution.</b>\n`
+  else msg += `\n✅ <b>Safe for trust-gated swap.</b>\n`
+
+  // Latest reviews
+  if (project.reviews.length > 0) {
+    msg += `\n💬 <b>Latest Reviews:</b>\n`
+    project.reviews.forEach(r => {
+      const reviewer = r.reviewer?.displayName || 'Anon'
+      msg += `\n"<i>${r.content.slice(0, 100)}${r.content.length > 100 ? '...' : ''}</i>"\n— ${reviewer} ${'⭐'.repeat(r.rating)}\n`
+    })
+  }
+
+  await sendMessage(chatId, msg, {
+    inline_keyboard: [
+      [{ text: '✍️ Write Review', callback_data: `review_${project.slug}` }],
+      [{ text: '🌐 View on Maiat', url: `${WEBAPP_URL}` }],
+    ]
+  })
+}
+
+async function handleReputation(chatId: number, userId: number) {
+  const tgAddress = `tg:${userId}`
+  const user = await prisma.user.findUnique({ where: { address: tgAddress } })
+  const scarab = await prisma.scarabBalance.findUnique({ where: { address: tgAddress } })
+
+  const reputationScore = user?.reputationScore ?? 0
+  const scarabPoints = scarab?.balance ?? 0
+  const totalReviews = user?.totalReviews ?? 0
+  const totalUpvotes = user?.totalUpvotes ?? 0
+  const combinedScore = reputationScore + Math.floor(scarabPoints / 10)
+
+  // Fee tier
+  let trustLevel: string, fee: string, feeEmoji: string
+  if (combinedScore >= 200) { trustLevel = '🏆 Guardian'; fee = '0%'; feeEmoji = '🟢' }
+  else if (combinedScore >= 50) { trustLevel = '✅ Verified'; fee = '0.1%'; feeEmoji = '🟢' }
+  else if (combinedScore >= 10) { trustLevel = '🟡 Trusted'; fee = '0.3%'; feeEmoji = '🟡' }
+  else { trustLevel = '⬜ New'; fee = '0.5%'; feeEmoji = '🔵' }
+
+  let msg = `👤 <b>Your Reputation</b>\n\n`
+  msg += `${trustLevel}\n`
+  msg += `📊 Combined Score: <b>${combinedScore}</b>\n`
+  msg += `🪲 Scarab Points: ${scarabPoints}\n`
+  msg += `📝 Reviews Written: ${totalReviews}\n`
+  msg += `👍 Total Upvotes: ${totalUpvotes}\n\n`
+  msg += `${feeEmoji} <b>Swap Fee: ${fee}</b>\n\n`
+
+  // Progress to next tier
+  if (combinedScore < 10) {
+    msg += `💡 Write ${Math.max(1, 10 - combinedScore)} more reviews to unlock <b>Trusted</b> (0.3% fee)\n`
+  } else if (combinedScore < 50) {
+    msg += `💡 ${50 - combinedScore} more points to unlock <b>Verified</b> (0.1% fee)\n`
+  } else if (combinedScore < 200) {
+    msg += `💡 ${200 - combinedScore} more points to unlock <b>Guardian</b> (0% fee)\n`
+  } else {
+    msg += `🎉 You've reached the highest tier! Enjoy 0% swap fees.\n`
+  }
+
+  await sendMessage(chatId, msg, {
+    inline_keyboard: [
+      [{ text: '✍️ Write Review (+rep)', callback_data: 'start_review' }],
+      [{ text: '🔄 Swap (discounted)', url: `${WEBAPP_URL}/?view=swap` }],
+    ]
+  })
+}
+
+async function handleSearch(chatId: number, text: string) {
+  const query = text.replace(/^\/search\s*/i, '').trim()
+  if (!query) {
+    await sendMessage(chatId, '🔎 Usage: <code>/search uniswap</code> or <code>/search coffee</code>')
+    return
+  }
+
+  const projects = await prisma.project.findMany({
+    where: {
+      OR: [
+        { name: { contains: query, mode: 'insensitive' } },
+        { description: { contains: query, mode: 'insensitive' } },
+        { category: { contains: query, mode: 'insensitive' } },
+        { slug: { contains: query.toLowerCase() } },
+      ]
+    },
+    orderBy: { reviewCount: 'desc' },
+    take: 10,
+  })
+
+  if (projects.length === 0) {
+    await sendMessage(chatId, `🔎 No results for "<b>${query}</b>".\n\nBrowse all: ${WEBAPP_URL}`)
+    return
+  }
+
+  let msg = `🔎 <b>Search: "${query}"</b> — ${projects.length} result${projects.length > 1 ? 's' : ''}\n\n`
+  projects.forEach((p, i) => {
+    const score = getSimpleTrustScore(p.name, p.category, p.avgRating, p.reviewCount)
+    const emoji = p.category === 'm/coffee' ? '☕' : p.category === 'm/defi' ? '🏦' : '🤖'
+    msg += `${i + 1}. ${emoji} <b>${p.name}</b> — Trust: ${score}/100 · ${p.reviewCount} reviews\n`
+  })
+
+  const buttons: any[][] = projects.slice(0, 5).map(p => {
+    return [{ text: `🛡️ ${p.name}`, callback_data: `review_${p.slug}` }]
+  })
+  buttons.push([{ text: '🌐 Browse all on Maiat', url: `${WEBAPP_URL}/?q=${encodeURIComponent(query)}` }])
+
+  await sendMessage(chatId, msg, { inline_keyboard: buttons })
+}
+
 async function handleNaturalLanguage(chatId: number, userId: number, text: string) {
   const lower = text.toLowerCase()
   if (lower.includes('coffee') || lower.includes('咖啡') || lower.includes('cafe') || lower.includes('brew')) {
@@ -436,6 +582,14 @@ async function handleNaturalLanguage(chatId: number, userId: number, text: strin
     await handleRecommend(chatId, 'ai agent')
   } else if (lower.includes('swap') || lower.includes('trade') || lower.includes('exchange') || lower.includes('買') || lower.includes('換')) {
     await handleSwap(chatId, '/swap ETH USDC 0.01')
+  } else if (lower.includes('trust score') || lower.includes('信任') || lower.includes('safe')) {
+    const match = text.match(/(?:trust|score|safe)\s+(\w+)/i)
+    if (match) await handleTrustQuery(chatId, `/trust ${match[1]}`)
+    else await sendMessage(chatId, '🛡️ Check trust: <code>/trust DEGEN</code>')
+  } else if (lower.includes('reputation') || lower.includes('my score') || lower.includes('fee') || lower.includes('聲譽')) {
+    await handleReputation(chatId, userId)
+  } else if (lower.includes('search') || lower.includes('find') || lower.includes('搜尋') || lower.includes('找')) {
+    await handleSearch(chatId, `/search ${text.replace(/^(search|find|搜尋|找)\s*/i, '')}`)
   } else if (lower.includes('review') || lower.includes('評論') || lower.includes('rate')) {
     await showProjectsForReview(chatId)
   } else {
