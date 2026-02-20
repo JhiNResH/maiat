@@ -1,7 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { notFound } from 'next/navigation'
 import { getSimpleTrustScore } from '@/lib/trust-score'
-import { ReviewForm } from '@/components/ReviewForm'
 import { VoteButtons } from '@/components/VoteButtons'
 import { OnChainBadge } from '@/components/OnChainBadge'
 import Link from 'next/link'
@@ -227,7 +226,19 @@ export default async function ProjectDetailPage({
           {/* Sidebar */}
           <div className="lg:col-span-1">
             <div className="sticky top-4">
-              <ReviewForm projectId={project.id} projectName={project.name} />
+              {/* Review via Telegram */}
+              <div className="bg-white border border-gray-200 rounded-md p-5 text-center">
+                <h3 className="text-sm font-bold font-mono text-gray-900 mb-2">Review {project.name}</h3>
+                <p className="text-xs font-mono text-gray-500 mb-4">Write verified reviews through our Telegram bot. AI-checked + on-chain verified.</p>
+                <a
+                  href={`https://t.me/MaiatBot?start=review_${(project as any).slug || project.id}`}
+                  target="_blank"
+                  rel="noopener"
+                  className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-bold font-mono text-sm py-2.5 px-6 rounded-md transition-colors"
+                >
+                  ✍️ Review on Telegram
+                </a>
+              </div>
 
               <div className="mt-4 bg-white border border-gray-200 rounded-md p-4">
                 <h3 className="text-xs font-bold tracking-widest text-gray-400 uppercase font-mono mb-2">About Maiat Trust</h3>
