@@ -56,6 +56,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         </div>
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <ThemeToggle />
+          <Link href="/swap" className="text-xs font-mono text-blue-600 hover:underline hidden sm:inline px-2 py-1 border border-blue-200 dark:border-blue-800 rounded">Swap</Link>
           <a href="https://t.me/MaiatBot" className="text-xs font-mono text-blue-600 hover:underline hidden sm:inline">@MaiatBot</a>
         </div>
       </header>
