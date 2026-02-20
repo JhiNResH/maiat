@@ -168,8 +168,17 @@ export default async function ProjectDetailPage({
                           <span className="text-sm font-medium">
                             {review.reviewer.displayName || `${review.reviewer.address.slice(0, 6)}...${review.reviewer.address.slice(-4)}`}
                           </span>
+                          {review.reviewer.address.startsWith('tg:') ? (
+                            <span className="ml-2 text-xs bg-sky-500/20 text-sky-300 px-1.5 py-0.5 rounded inline-flex items-center gap-1">
+                              📱 via Telegram
+                            </span>
+                          ) : (
+                            <span className="ml-2 text-xs bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded inline-flex items-center gap-1">
+                              🛡️ Verified Human
+                            </span>
+                          )}
                           {review.reviewer.reputationScore > 0 && (
-                            <span className="ml-2 text-xs bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded">
+                            <span className="ml-1 text-xs bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded">
                               Rep: {review.reviewer.reputationScore}
                             </span>
                           )}

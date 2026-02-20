@@ -50,6 +50,8 @@ export async function POST(request: NextRequest) {
       await showProjectsForReview(chatId)
     } else if (text.startsWith('/swap')) {
       await handleSwap(chatId, text)
+    } else if (text.startsWith('/verify')) {
+      await handleVerify(chatId, userId)
     } else if (text.startsWith('/trust') || text.startsWith('/score')) {
       await handleTrustQuery(chatId, text)
     } else if (text.startsWith('/reputation') || text.startsWith('/profile')) {
@@ -77,7 +79,7 @@ export async function POST(request: NextRequest) {
 }
 
 async function sendWelcome(chatId: number) {
-  const text = `🪲 <b>Welcome to Maiat</b>\nThe trust score layer for agentic commerce.\n\n🔍 <b>/recommend coffee</b> — Find the best\n✍️ <b>/review</b> — Write a verified review\n🔄 <b>/swap ETH USDC 0.1</b> — Trust-gated swap\n🛡️ <b>/trust DEGEN</b> — Check token trust score\n👤 <b>/reputation</b> — Your rep + fee tier\n🔎 <b>/search uniswap</b> — Search projects\n❓ <b>/help</b> — How it works\n\nOr just ask me anything naturally!`
+  const text = `🪲 <b>Welcome to Maiat</b>\nThe trust score layer for agentic commerce.\n\n🔍 <b>/recommend coffee</b> — Find the best\n✍️ <b>/review</b> — Write a verified review\n🔄 <b>/swap ETH USDC 0.1</b> — Trust-gated swap\n🛡️ <b>/trust DEGEN</b> — Check token trust score\n👤 <b>/reputation</b> — Your rep + fee tier\n🔎 <b>/search uniswap</b> — Search projects\n🔗 <b>/verify</b> — Link wallet + Base Verify\n❓ <b>/help</b> — How it works\n\nOr just ask me anything naturally!`
 
   await sendMessage(chatId, text, {
     inline_keyboard: [
@@ -456,6 +458,43 @@ async function handleSwap(chatId: number, text: string) {
   } catch (e: any) {
     await sendMessage(chatId, `❌ Swap quote failed: ${e.message}`)
   }
+}
+
+async function handleVerify(chatId: number, userId: number) {
+  const tgAddress = `tg:${userId}`
+  const user = await prisma.user.findUnique({ where: { address: tgAddress } })
+
+  // Check if already linked to a wallet
+  const linkedWallet = user?.displayName?.startsWith('0x') ? user.displayName : null
+
+  if (linkedWallet) {
+    await sendMessage(chatId,
+      `✅ <b>Already Verified!</b>\n\n` +
+      `🔗 Wallet: <code>${linkedWallet.slice(0,6)}...${linkedWallet.slice(-4)}</code>\n` +
+      `🛡️ Your Telegram reviews are linked to this wallet.\n` +
+      `📊 Base Verify status applies to all your reviews.`,
+      { inline_keyboard: [[{ text: '🌐 Manage on Maiat', url: `${WEBAPP_URL}/review` }]] }
+    )
+    return
+  }
+
+  // Generate a unique link token
+  const linkToken = `${userId}_${Date.now().toString(36)}`
+
+  await sendMessage(chatId,
+    `🛡️ <b>Verify Your Identity</b>\n\n` +
+    `Connect your wallet on Maiat to:\n\n` +
+    `1️⃣ Link your Telegram to your wallet address\n` +
+    `2️⃣ Get <b>Base Verify</b> "Verified Human" badge\n` +
+    `3️⃣ Your reviews get <b>2x trust weight</b>\n` +
+    `4️⃣ Unlock lower swap fees\n\n` +
+    `👇 Tap below to connect:`,
+    {
+      inline_keyboard: [
+        [{ text: '🔗 Connect Wallet & Verify', url: `${WEBAPP_URL}/verify?tg=${userId}&token=${linkToken}` }],
+      ]
+    }
+  )
 }
 
 async function handleTrustQuery(chatId: number, text: string) {
