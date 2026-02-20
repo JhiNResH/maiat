@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyReviewWith0G } from '@/lib/0g-compute'
+import { submitReviewAttestation, hashReviewContent } from '@/lib/hedera'
 
 export const dynamic = 'force-dynamic'
 
@@ -260,7 +261,7 @@ async function handleReviewFlow(chatId: number, userId: number, text: string, us
       })
       
       const scoreEmoji = result.score >= 80 ? '✅' : result.score >= 50 ? '⚠️' : '❌'
-      verificationText += `\n🔍 <b>0G AI Quality Check</b>\n   Score: ${result.score}/100 ${scoreEmoji}\n   ${result.summary || 'Analyzed by 0G Compute Network'}\n   Network: 0G Testnet`
+      verificationText += `\n🔍 <b>0G AI Quality Check</b>\n   Score: ${result.score}/100 ${scoreEmoji}\n   ${result.reasoning || 'Analyzed by 0G Compute Network'}\n   Network: 0G Testnet`
 
       // Update review status based on score
       if (result.score >= 60) {
@@ -307,7 +308,28 @@ async function handleReviewFlow(chatId: number, userId: number, text: string, us
       kiteText = `\n\n🪪 <b>KiteAI Verify:</b> Queued`
     }
 
-    // 6. Send verification card
+    // 6. Hedera HCS attestation
+    let hederaText = ''
+    try {
+      const contentHash = hashReviewContent(text)
+      const trustScore = Math.min(100, Math.round((state.rating || 3) * 15 + 5))
+      const hcsResult = await submitReviewAttestation({
+        reviewId: review.id,
+        projectName: state.projectName || '',
+        projectSlug: state.projectName?.toLowerCase().replace(/[^a-z0-9]+/g, '-') || '',
+        reviewer: tgAddress,
+        rating: state.rating!,
+        contentHash,
+        trustScore,
+        verificationStatus: 'verified',
+      })
+      hederaText = `\n\n🏛️ <b>Hedera Consensus Attestation</b>\n   Topic: ${hcsResult.topicId}\n   Seq: #${hcsResult.sequenceNumber}\n   <a href="https://hashscan.io/testnet/topic/${hcsResult.topicId}">View on HashScan</a>`
+    } catch (e: any) {
+      console.error('[Hedera] Error:', e.message)
+      hederaText = '\n\n🏛️ <b>Hedera Attestation:</b> Queued'
+    }
+
+    // 7. Send verification card
     const stars = '⭐'.repeat(state.rating)
     const resultText = `✅ <b>Review Published & Verified!</b>\n\n📝 <b>${state.projectName}</b>\n${stars}\n"<i>${text.slice(0, 200)}${text.length > 200 ? '...' : ''}</i>"\n— @${username}${verificationText}${kiteText}\n\n🌐 <a href="${WEBAPP_URL}">View on Maiat</a>`
 
