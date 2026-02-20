@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
         const slug = param.replace('review_', '')
         await startReviewFlow(chatId, userId, slug)
       } else {
-        await sendWelcome(chatId)
+        await sendWelcome(chatId, userId, username)
       }
     } else if (text.startsWith('/recommend') || text.startsWith('/best') || text.toLowerCase().includes('推薦') || text.toLowerCase().includes('which') || text.toLowerCase().includes('best coffee')) {
       await handleRecommend(chatId, text)
@@ -84,8 +84,74 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function sendWelcome(chatId: number) {
-  const text = `🪲 <b>Welcome to Maiat</b>\nThe trust score layer for agentic commerce.\n\n🔍 <b>/recommend coffee</b> — Find the best\n✍️ <b>/review</b> — Write a verified review\n🔄 <b>/swap ETH USDC 0.1</b> — Trust-gated swap\n🛡️ <b>/trust DEGEN</b> — Check token trust score\n👤 <b>/reputation</b> — Your rep + fee tier\n🔎 <b>/search uniswap</b> — Search projects\n🔗 <b>/verify</b> — Link wallet + Base Verify\n❓ <b>/help</b> — How it works\n\nOr just ask me anything naturally!`
+async function getOrCreateWallet(userId: number, username: string): Promise<{ address: string; isNew: boolean }> {
+  const tgAddress = `tg:${userId}`
+  const existing = await prisma.user.findUnique({ where: { address: tgAddress } })
+
+  // Check if user already has a real wallet address
+  if (existing) {
+    // Look for Privy wallet
+    try {
+      const privyUser = await privy.getUserByTelegramUserId(String(userId))
+      if (privyUser) {
+        const wallet = privyUser.linkedAccounts.find(
+          (a: any) => a.type === 'wallet' && a.walletClientType === 'privy'
+        )
+        if (wallet && 'address' in wallet) {
+          return { address: wallet.address as string, isNew: false }
+        }
+      }
+    } catch {}
+    return { address: tgAddress, isNew: false }
+  }
+
+  // Create new Privy user with embedded wallet
+  let walletAddress: string | null = null
+  try {
+    let privyUser = await privy.getUserByTelegramUserId(String(userId))
+    if (!privyUser) {
+      privyUser = await privy.importUser({
+        linkedAccounts: [{ type: 'telegram' as const, telegramUserId: String(userId), firstName: username }],
+        createEthereumWallet: true,
+      })
+    }
+    const wallet = privyUser.linkedAccounts.find(
+      (a: any) => a.type === 'wallet' && a.walletClientType === 'privy'
+    )
+    if (wallet && 'address' in wallet) {
+      walletAddress = wallet.address as string
+    }
+  } catch (e: any) {
+    console.error('[Privy] wallet creation failed:', e.message)
+  }
+
+  await prisma.user.create({
+    data: {
+      address: walletAddress || tgAddress,
+      displayName: username ? `@${username}` : `TG:${userId}`,
+    }
+  })
+
+  return { address: walletAddress || tgAddress, isNew: true }
+}
+
+async function sendWelcome(chatId: number, userId?: number, username?: string) {
+  let walletLine = ''
+  if (userId) {
+    try {
+      const { address, isNew } = await getOrCreateWallet(userId, username || 'anon')
+      if (address.startsWith('0x')) {
+        const short = `${address.slice(0, 6)}...${address.slice(-4)}`
+        walletLine = isNew
+          ? `\n🔗 <b>Wallet created!</b> <code>${short}</code>\n`
+          : `\n🔗 <b>Wallet:</b> <code>${short}</code>\n`
+      }
+    } catch (e: any) {
+      console.error('[Welcome wallet]', e.message)
+    }
+  }
+
+  const text = `🪲 <b>Welcome to Maiat</b>\nThe trust score layer for agentic commerce.${walletLine}\n🔍 <b>/recommend coffee</b> — Find the best\n✍️ <b>/review</b> — Write a verified review\n🔄 <b>/swap ETH USDC 0.1</b> — Trust-gated swap\n🛡️ <b>/trust DEGEN</b> — Check token trust score\n👤 <b>/reputation</b> — Your rep + fee tier\n🔎 <b>/search uniswap</b> — Search projects\n🔗 <b>/verify</b> — Link wallet + Base Verify\n❓ <b>/help</b> — How it works\n\nOr just ask me anything naturally!`
 
   await sendMessage(chatId, text, {
     inline_keyboard: [
