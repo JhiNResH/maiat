@@ -23,38 +23,29 @@ import {IPoolManager} from "v4-core/interfaces/IPoolManager.sol";
 ///
 /// Required env vars:
 ///   PRIVATE_KEY          — deployer private key
-///   POOL_MANAGER_ADDRESS — Uniswap V4 PoolManager on target chain
-///   BACKEND_UPDATER      — (optional) address to authorize as score updater
+///   POOL_MANAGER_ADDRESS — Uniswap V4 PoolManager on target chain (optional, defaults to Base Sepolia)
 contract Deploy is Script {
-    // Base Sepolia V4 PoolManager (update if different)
+    // Uniswap V4 PoolManager on Base Sepolia
     // https://docs.uniswap.org/contracts/v4/deployments
-    address constant BASE_SEPOLIA_POOL_MANAGER = 0x7Da1D65F8B249183667cdE74C5CBD46dD38aa829;
+    address constant BASE_SEPOLIA_POOL_MANAGER = 0x7Da1D65F8B249183667cdE74C5CBD46dD38AA829;
 
     function run() external {
         address poolManagerAddr = vm.envOr("POOL_MANAGER_ADDRESS", BASE_SEPOLIA_POOL_MANAGER);
-        address backendUpdater = vm.envOr("BACKEND_UPDATER", address(0));
         uint256 deployerKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerKey);
 
         console2.log("=== MAIAT Deployment ===");
         console2.log("Deployer:     ", deployer);
         console2.log("PoolManager:  ", poolManagerAddr);
-        console2.log("BackendUpdater:", backendUpdater);
         console2.log("Chain ID:     ", block.chainid);
 
         vm.startBroadcast(deployerKey);
 
-        // 1. Deploy TrustScoreOracle
+        // 1. Deploy TrustScoreOracle (deployer = owner, can update scores)
         TrustScoreOracle oracle = new TrustScoreOracle(deployer);
         console2.log("TrustScoreOracle deployed:", address(oracle));
 
-        // 2. Authorize backend updater (if provided)
-        if (backendUpdater != address(0)) {
-            oracle.setAuthorizedUpdater(backendUpdater, true);
-            console2.log("Authorized updater:", backendUpdater);
-        }
-
-        // 3. Deploy TrustGateHook
+        // 2. Deploy TrustGateHook
         TrustGateHook hook = new TrustGateHook(
             oracle,
             IPoolManager(poolManagerAddr),
@@ -69,8 +60,8 @@ contract Deploy is Script {
         console2.log("TrustScoreOracle:", address(oracle));
         console2.log("TrustGateHook:   ", address(hook));
         console2.log("\nNext steps:");
-        console2.log("1. Set ORACLE_ADDRESS and HOOK_ADDRESS env vars");
-        console2.log("2. Run Interact.s.sol to seed token scores");
-        console2.log("3. Register hook with Uniswap V4 PoolManager");
+        console2.log("1. Export: ORACLE_ADDRESS=", address(oracle));
+        console2.log("2. Export: HOOK_ADDRESS=  ", address(hook));
+        console2.log("3. Run SeedScores script to populate token trust scores");
     }
 }
