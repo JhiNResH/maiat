@@ -34,6 +34,7 @@ Next person asks → Your verified review helps them decide
 | **KiteAI** | x402 micropayment protocol for agent-to-agent verification | $10,000 |
 | **Base** | Base Verify (anti-sybil) + on-chain identity | $10,000 |
 | **Hedera/OpenClaw** | HCS attestations for immutable review records | $10,000 |
+| **Uniswap** | V4 TrustGate Hook — trust-gated swaps via on-chain oracle | TBD |
 
 ---
 
@@ -117,6 +118,18 @@ Full review lifecycle without leaving Telegram:
 3. **KiteAI** records on-chain → tx hash
 4. **Hedera HCS** creates attestation → sequence number
 5. Bot sends verification card with all proofs
+
+---
+
+### Uniswap V4 — TrustGate Hook
+- **What:** V4 hook that checks token trust scores before allowing swaps
+- **How:** `beforeSwap` queries `TrustScoreOracle` → blocks swaps on low-trust tokens (< threshold)
+- **Contracts:** `TrustGateHook.sol` + `TrustScoreOracle.sol`
+- **Features:**
+  - Configurable trust threshold (default: 60/100)
+  - Owner can update threshold
+  - Emits `TrustGateChecked` / `SwapBlocked` events
+- **Use case:** DEX integrates Maiat hook → users are protected from swapping into scam tokens
 
 ---
 
