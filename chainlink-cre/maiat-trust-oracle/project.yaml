@@ -1,0 +1,12 @@
+# Maiat Trust Oracle — CRE Project
+# Fetches reviews from Maiat API, verifies with AI, writes trust scores on-chain
+
+rpcs:
+  staging-settings:
+    ethereum-testnet-sepolia:
+      http:
+        - url: "https://ethereum-sepolia-rpc.publicnode.com"
+  production-settings:
+    ethereum-testnet-sepolia:
+      http:
+        - url: "https://ethereum-sepolia-rpc.publicnode.com"
