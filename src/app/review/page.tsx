@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { usePrivy } from '@privy-io/react-auth'
 import { ArrowLeft, Star, Send } from 'lucide-react'
 import Link from 'next/link'
+import { BaseVerifyButton } from '@/components/BaseVerifyButton'
 
 interface Project {
   id: string
@@ -24,6 +25,7 @@ export default function ReviewPage() {
   const [submitting, setSubmitting] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [baseVerified, setBaseVerified] = useState(false)
 
   const address = user?.wallet?.address
 
@@ -180,6 +182,17 @@ export default function ReviewPage() {
                 rows={5}
                 className="w-full px-4 py-3 bg-[#111113] border border-[#1f1f23] rounded-lg text-white placeholder-[#6b6b70] focus:border-purple-500 focus:outline-none resize-none"
               />
+            </div>
+
+            {/* Base Verify - Human Verification */}
+            <div className="mb-6 p-4 bg-[#111113] border border-[#1f1f23] rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-white text-sm font-medium">Verify you're human</p>
+                  <p className="text-[#6b6b70] text-xs mt-0.5">Verified reviews get higher trust scores</p>
+                </div>
+                <BaseVerifyButton onVerified={() => setBaseVerified(true)} />
+              </div>
             </div>
 
             {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
