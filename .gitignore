@@ -6,3 +6,4 @@ cache
 .env.local
 .vercel
 virtuals-acp/
+contracts/lib/
