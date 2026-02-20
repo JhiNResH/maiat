@@ -34,7 +34,7 @@ Next person asks → Your verified review helps them decide
 | **KiteAI** | x402 micropayment protocol for agent-to-agent verification | $10,000 |
 | **Base** | Base Verify (anti-sybil) + on-chain identity | $10,000 |
 | **Hedera/OpenClaw** | HCS attestations for immutable review records | $10,000 |
-| **Uniswap** | V4 Hook: trust-gated `beforeSwap` + reputation-based dynamic fees | $5,000 |
+| **Uniswap** | Trading API integration + V4 Hook (trust-gated swaps + dynamic fees) | $5,000 |
 
 ---
 
