@@ -3,7 +3,7 @@
  * Sends notifications to @maiatalerts when projects need reviews
  */
 
-const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8320745684:AAE4diIOwF7XE24gPqQtF6oAkP6z3RZqmAw'
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || ''
 const ALERT_CHAT_ID = process.env.TELEGRAM_ALERT_CHAT_ID || '@maiatalerts'
 
 export async function sendAlert(text: string, parseMode: string = 'HTML'): Promise<boolean> {
