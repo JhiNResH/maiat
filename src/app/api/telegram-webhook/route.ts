@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { verifyReviewWith0G } from '@/lib/0g-compute'
 import { submitReviewAttestation, hashReviewContent } from '@/lib/hedera'
-import { getSimpleTrustScore } from '@/lib/trust-score'
+import { getSimpleTrustScore, calculateTrustScore } from '@/lib/trust-score'
 import { PrivyClient } from '@privy-io/server-auth'
 
 const privy = new PrivyClient(
@@ -598,6 +598,65 @@ async function handleVerify(chatId: number, userId: number) {
   )
 }
 
+async function generateAIAnalysis(
+  projectName: string,
+  category: string,
+  score: number,
+  breakdown: { onChainActivity: number; verifiedReviews: number; communityTrust: number; aiQuality: number },
+  reviews: Array<{ content: string; rating: number; reviewer?: { displayName: string | null } }>,
+  avgRating: number,
+  reviewCount: number,
+): Promise<string> {
+  const GEMINI_KEY = process.env.GEMINI_API_KEY
+  if (!GEMINI_KEY) return ''
+
+  const reviewSummary = reviews.slice(0, 5).map(r =>
+    `- ${r.rating}★: "${r.content.slice(0, 150)}"`
+  ).join('\n')
+
+  const prompt = `You are Maiat's trust analysis engine. Give a concise 3-4 sentence analysis of this crypto project's trustworthiness. Be direct and specific. Use data provided.
+
+Project: ${projectName}
+Category: ${category}
+Overall Trust Score: ${score}/100
+Breakdown:
+- On-chain Activity: ${breakdown.onChainActivity}/100
+- Verified Reviews: ${breakdown.verifiedReviews}/100  
+- Community Trust: ${breakdown.communityTrust}/100
+- AI Baseline: ${breakdown.aiQuality}/100
+Average Rating: ${avgRating}/5 from ${reviewCount} reviews
+
+Recent Reviews:
+${reviewSummary || 'No reviews yet.'}
+
+Write analysis in this format:
+1. Overall assessment (1 sentence)
+2. Key strength (1 sentence)
+3. Key risk/weakness (1 sentence)
+4. Recommendation for traders (1 sentence)
+
+Keep it under 400 chars. No markdown, no bullet points, just flowing text.`
+
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { maxOutputTokens: 200, temperature: 0.3 },
+        }),
+      }
+    )
+    const data = await res.json()
+    return data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ''
+  } catch (e: any) {
+    console.error('[Gemini trust analysis]', e.message)
+    return ''
+  }
+}
+
 async function handleTrustQuery(chatId: number, text: string) {
   const query = text.replace(/^\/(trust|score)\s*/i, '').trim()
   if (!query) {
@@ -605,7 +664,6 @@ async function handleTrustQuery(chatId: number, text: string) {
     return
   }
 
-  // Search by name or slug
   const project = await prisma.project.findFirst({
     where: {
       OR: [
@@ -613,7 +671,7 @@ async function handleTrustQuery(chatId: number, text: string) {
         { slug: { contains: query.toLowerCase() } },
       ]
     },
-    include: { reviews: { take: 3, orderBy: { createdAt: 'desc' }, include: { reviewer: true } } }
+    include: { reviews: { take: 5, orderBy: { createdAt: 'desc' }, include: { reviewer: true } } }
   })
 
   if (!project) {
@@ -621,35 +679,71 @@ async function handleTrustQuery(chatId: number, text: string) {
     return
   }
 
-  const score = getSimpleTrustScore(project.name, project.category, project.avgRating, project.reviewCount)
+  await sendMessage(chatId, `🔍 Analyzing <b>${project.name}</b>...`)
+
+  // Use full trust score with breakdown
+  let score: number, breakdown: { onChainActivity: number; verifiedReviews: number; communityTrust: number; aiQuality: number }
+  try {
+    const result = await calculateTrustScore(project.slug)
+    score = result.score
+    breakdown = result.breakdown
+  } catch {
+    score = getSimpleTrustScore(project.name, project.category, project.avgRating, project.reviewCount)
+    breakdown = { onChainActivity: 0, verifiedReviews: Math.round(project.avgRating * 20), communityTrust: 0, aiQuality: score }
+  }
+
   const riskLevel = score >= 80 ? '🟢 Low Risk' : score >= 50 ? '🟡 Medium Risk' : '🔴 High Risk'
   const stars = project.avgRating > 0 ? '⭐'.repeat(Math.round(project.avgRating)) : 'No ratings'
 
-  let msg = `🛡️ <b>Trust Score: ${project.name}</b>\n\n`
-  msg += `📊 Score: <b>${score}/100</b> ${riskLevel}\n`
-  msg += `⭐ Rating: ${stars} (${project.avgRating.toFixed(1)})\n`
-  msg += `📝 Reviews: ${project.reviewCount}\n`
-  msg += `📁 Category: ${project.category.replace('m/', '')}\n`
+  // Generate AI analysis
+  const aiAnalysis = await generateAIAnalysis(
+    project.name, project.category, score, breakdown,
+    project.reviews, project.avgRating, project.reviewCount
+  )
 
-  if (score < 30) msg += `\n🚫 <b>This token would be BLOCKED on trust-gated swap.</b>\n`
-  else if (score < 60) msg += `\n⚠️ <b>Moderate trust — swap with caution.</b>\n`
-  else msg += `\n✅ <b>Safe for trust-gated swap.</b>\n`
+  let msg = `🛡️ <b>Trust Analysis: ${project.name}</b>\n\n`
+  msg += `📊 Overall Score: <b>${score}/100</b> ${riskLevel}\n`
+  msg += `⭐ Rating: ${stars} (${project.avgRating.toFixed(1)}) · ${project.reviewCount} reviews\n`
+  msg += `📁 ${project.category.replace('m/', '').toUpperCase()}\n\n`
+
+  // Breakdown bars
+  msg += `<b>📋 Score Breakdown</b>\n`
+  msg += `⛓️ On-chain Activity: ${breakdown.onChainActivity}/100 ${getBar(breakdown.onChainActivity)}\n`
+  msg += `✅ Verified Reviews: ${breakdown.verifiedReviews}/100 ${getBar(breakdown.verifiedReviews)}\n`
+  msg += `👥 Community Trust: ${breakdown.communityTrust}/100 ${getBar(breakdown.communityTrust)}\n`
+  msg += `🤖 AI Baseline: ${breakdown.aiQuality}/100 ${getBar(breakdown.aiQuality)}\n`
+
+  // AI Analysis
+  if (aiAnalysis) {
+    msg += `\n🧠 <b>AI Analysis</b>\n<i>${aiAnalysis}</i>\n`
+  }
+
+  // Swap recommendation
+  if (score < 30) msg += `\n🚫 <b>BLOCKED — Trust too low for trust-gated swap.</b>\n`
+  else if (score < 60) msg += `\n⚠️ <b>CAUTION — Moderate trust. Swap with care.</b>\n`
+  else msg += `\n✅ <b>SAFE — Cleared for trust-gated swap.</b>\n`
 
   // Latest reviews
   if (project.reviews.length > 0) {
     msg += `\n💬 <b>Latest Reviews:</b>\n`
-    project.reviews.forEach(r => {
+    project.reviews.slice(0, 3).forEach(r => {
       const reviewer = r.reviewer?.displayName || 'Anon'
-      msg += `\n"<i>${r.content.slice(0, 100)}${r.content.length > 100 ? '...' : ''}</i>"\n— ${reviewer} ${'⭐'.repeat(r.rating)}\n`
+      const verified = r.txHash ? ' ✅' : ''
+      msg += `\n"<i>${r.content.slice(0, 100)}${r.content.length > 100 ? '...' : ''}</i>"\n— ${reviewer} ${'⭐'.repeat(r.rating)}${verified}\n`
     })
   }
 
   await sendMessage(chatId, msg, {
     inline_keyboard: [
       [{ text: '✍️ Write Review', callback_data: `review_${project.slug}` }],
-      [{ text: '🌐 View on Maiat', url: `${WEBAPP_URL}` }],
+      [{ text: '🔄 Swap', url: `${WEBAPP_URL}/?view=swap` }, { text: '🌐 View on Maiat', url: WEBAPP_URL }],
     ]
   })
+}
+
+function getBar(value: number): string {
+  const filled = Math.round(value / 10)
+  return '█'.repeat(filled) + '░'.repeat(10 - filled)
 }
 
 async function handleReputation(chatId: number, userId: number) {
