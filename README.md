@@ -120,6 +120,35 @@ Full review lifecycle without leaving Telegram:
 
 ---
 
+## 🤖 Virtuals ACP — Agent Commerce Protocol
+
+Maiat is a **seller agent** on the Virtuals Agent Commerce Protocol, allowing any AI agent to programmatically query trust scores and pay per request.
+
+**Offering: `trust_score_query`**
+- **Fee:** 0.01 USDC per query (fixed)
+- **Deployed:** Railway (24/7)
+- **Network:** Base Mainnet
+
+**How agents use it:**
+1. Agent discovers Maiat's offering via ACP registry
+2. Sends job request with `{ "project": "uniswap" }`
+3. Pays 0.01 USDC via ACP
+4. Receives: trust score, risk level, review count, sentiment, strengths, concerns
+
+```
+virtuals-acp/
+├── src/seller/
+│   ├── offerings/maiat/
+│   │   ├── trust_score_query/   # Trust score lookup
+│   │   └── deep_insight_report/ # Detailed analysis
+│   └── runtime/                 # ACP socket + seller logic
+└── bin/acp.ts                   # CLI tool
+```
+
+This is the **"agentic commerce"** layer — AI agents pay Maiat for trust intelligence before making decisions on behalf of users.
+
+---
+
 ## 🪲 Scarab Points System
 
 Scarab is Maiat's off-chain incentive layer that rewards quality contributions:
