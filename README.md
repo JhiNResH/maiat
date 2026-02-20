@@ -34,7 +34,7 @@ Next person asks → Your verified review helps them decide
 | **KiteAI** | x402 micropayment protocol for agent-to-agent verification | $10,000 |
 | **Base** | Base Verify (anti-sybil) + on-chain identity | $10,000 |
 | **Hedera/OpenClaw** | HCS attestations for immutable review records | $10,000 |
-| **Uniswap** | V4 TrustGate Hook — trust-gated swaps via on-chain oracle | TBD |
+| **Uniswap** | Trust-gated swaps via Uniswap API + on-chain TrustGate Hook | $5,000 |
 
 ---
 
@@ -121,15 +121,25 @@ Full review lifecycle without leaving Telegram:
 
 ---
 
-### Uniswap V4 — TrustGate Hook
-- **What:** V4 hook that checks token trust scores before allowing swaps
-- **How:** `beforeSwap` queries `TrustScoreOracle` → blocks swaps on low-trust tokens (< threshold)
-- **Contracts:** `TrustGateHook.sol` + `TrustScoreOracle.sol`
+### Uniswap API — Trust-Gated Swaps
+- **What:** Swap any token via Uniswap API, with Maiat trust score as a safety gate
+- **How:** `POST /api/swap` → checks trust score → if safe, returns Uniswap quote → execute swap
+- **API Key:** Uniswap Developer Platform
+- **Endpoint:** `POST /api/swap` (trust-gated) / `GET /api/swap` (quick quote)
 - **Features:**
-  - Configurable trust threshold (default: 60/100)
-  - Owner can update threshold
-  - Emits `TrustGateChecked` / `SwapBlocked` events
-- **Use case:** DEX integrates Maiat hook → users are protected from swapping into scam tokens
+  - Trust score < 30 → swap **blocked** (high risk)
+  - Trust score 30-60 → swap allowed with **warning**
+  - Trust score > 60 → swap allowed ✅
+  - Falls back to quote-only if trust check unavailable
+- **Smart Contracts:** `TrustGateHook.sol` (V4 hook) + `TrustScoreOracle.sol` (on-chain oracle)
+- **Use case:** Agent or user swaps via Maiat → protected from scam tokens automatically
+
+```bash
+# Trust-gated swap quote
+curl -X POST https://maiat.vercel.app/api/swap \
+  -H "Content-Type: application/json" \
+  -d '{"tokenIn":"0x...", "tokenOut":"0x...", "amount":"1000000000000000000", "chainId":1, "swapper":"0x..."}'
+```
 
 ---
 
