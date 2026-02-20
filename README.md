@@ -95,10 +95,61 @@ Next person asks → Your verified review helps them decide
 
 ### Base — Identity & Anti-Sybil
 - **What:** Base Verify for human verification + SIWE authentication
-- **How:** Users prove humanity via Base Verify Mini App → "Verified Human" badge
+- **How:** Users prove humanity via Base Verify Mini App → "Verified Human" badge on profile and reviews
 - **Endpoint:** `POST /api/verify-base`
 - **App ID:** `699600ef25337829d86a5475`
 - **Chain:** Base Sepolia (84532)
+
+**Full Flow:**
+```
+User clicks "Verify Human"
+  → Signs SIWE message via Privy wallet (Base mainnet, chainId 8453)
+  → Backend validates signature with viem.verifyMessage()
+  → Calls Base Verify API (verify.base.dev) with provider + traits
+  → API returns deterministic verificationToken (same social = same token)
+  → Token stored in DB with UNIQUE constraint → prevents multi-wallet Sybil
+  → User gets "Verified Human" badge (✓) on all reviews
+```
+
+**Supported Identity Providers:**
+| Provider | Trait verified |
+|----------|---------------|
+| X (Twitter) | Account ownership |
+| Coinbase One | KYC'd identity |
+| Instagram | Social presence |
+| TikTok | Social presence |
+
+**Sybil Resistance Design:**
+- `verificationToken` is deterministic: same social account always returns the same token
+- Unique DB constraint on `verificationToken` → one human = one wallet
+- On-chain: reputation scores weighted by verified status (`isVerified` flag on reviews)
+- Unverified reviews have lower weight in trust score calculation
+
+**Components:**
+- `src/components/BaseVerifyButton.tsx` — SIWE signing + Mini App redirect
+- `src/app/api/verify-base/route.ts` — Signature validation + Base Verify API call
+- `src/app/api/verify-interaction/route.ts` — On-chain interaction proof
+
+```bash
+# Verify human identity
+curl -X POST https://maiat.vercel.app/api/verify-base \
+  -H "Content-Type: application/json" \
+  -d '{
+    "address": "0x...",
+    "signature": "0x...",
+    "message": { "chainId": 8453, "statement": "Verify your identity with Base Verify for Maiat.", ... },
+    "provider": "x"
+  }'
+
+# Response
+{
+  "verified": true,
+  "verificationToken": "base-x-abc123...",
+  "badge": "Verified Human",
+  "provider": "x",
+  "traits": { "verified": true }
+}
+```
 
 ### Hedera Consensus Service — Immutable Attestations
 - **What:** Every verified review creates an immutable HCS attestation
@@ -163,6 +214,28 @@ User initiates swap
 - Reputation-based dynamic fees — **write reviews, get cheaper swaps**
 - `GET /api/reputation?address=0x...` — query any user's trust level + fee tier
 - 8 Base tokens supported: ETH, USDC, WETH, DAI, cbBTC, AERO, DEGEN, USDT
+
+**Contract Tests (54/54 passing):**
+```bash
+cd contracts
+forge test -v
+# TrustScoreOracle.t.sol: 22 tests (unit + 3 fuzz)
+# TrustGateHook.t.sol:    29 tests (unit + 3 fuzz, including dynamic fee tiers)
+```
+
+**Deploy to Base Sepolia:**
+```bash
+cd contracts
+forge script script/Deploy.s.sol \
+  --rpc-url $BASE_SEPOLIA_RPC \
+  --private-key $PRIVATE_KEY \
+  --broadcast --verify \
+  --etherscan-api-key $BASESCAN_API_KEY -vvvv
+
+# Seed token trust scores
+ORACLE_ADDRESS=0x... forge script script/Interact.s.sol:SeedScores \
+  --rpc-url $BASE_SEPOLIA_RPC --private-key $PRIVATE_KEY --broadcast
+```
 
 ```bash
 # Trust-gated swap with reputation fees
@@ -269,8 +342,15 @@ maiat/
 │       ├── BaseVerifyButton.tsx    # Base Verify human check
 │       └── SearchBar.tsx           # Project search
 ├── contracts/
-│   ├── src/TrustGateHook.sol      # Uniswap V4 trust-gated hook
-│   └── src/TrustScoreOracle.sol   # On-chain trust oracle
+│   ├── src/
+│   │   ├── TrustGateHook.sol      # Uniswap V4 trust-gated hook (beforeSwap + dynamic fee)
+│   │   └── TrustScoreOracle.sol   # On-chain trust oracle (token scores + user reputation)
+│   ├── test/
+│   │   ├── TrustGateHook.t.sol    # 29 tests (unit + fuzz)
+│   │   └── TrustScoreOracle.t.sol # 22 tests (unit + fuzz)
+│   └── script/
+│       ├── Deploy.s.sol           # Deploy oracle + hook to Base Sepolia
+│       └── Interact.s.sol         # Seed scores, update reputation, read state
 ├── prisma/schema.prisma           # Database schema
 └── scripts/
     └── setup-hedera-topic.ts      # One-time HCS topic creation
