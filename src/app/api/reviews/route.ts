@@ -70,14 +70,14 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Create review
+    // Create review (use project.id from lookup to handle both projectId and projectSlug cases)
     const review = await prisma.review.create({
       data: {
         rating,
         content: content || '',
         status: 'active',
         reviewerId: user.id,
-        projectId,
+        projectId: project.id,
       },
       include: {
         reviewer: { select: { address: true, displayName: true } },
@@ -86,11 +86,11 @@ export async function POST(request: NextRequest) {
     })
 
     // Update project stats
-    const reviews = await prisma.review.findMany({ where: { projectId } })
-    const avg = reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+    const allProjectReviews = await prisma.review.findMany({ where: { projectId: project.id } })
+    const avg = allProjectReviews.reduce((sum, r) => sum + r.rating, 0) / allProjectReviews.length
     await prisma.project.update({
-      where: { id: projectId },
-      data: { avgRating: Math.round(avg * 10) / 10, reviewCount: reviews.length }
+      where: { id: project.id },
+      data: { avgRating: Math.round(avg * 10) / 10, reviewCount: allProjectReviews.length }
     })
 
     // Update user stats

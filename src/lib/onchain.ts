@@ -1,10 +1,10 @@
 /**
- * On-chain integration for Maat ReviewRegistry on BSC Testnet
+ * On-chain integration for Maat ReviewRegistry on Base Sepolia
  * Bridges off-chain reviews to on-chain proofs
  */
 
 import { createPublicClient, createWalletClient, http, keccak256, toBytes, encodeFunctionData, type Hex } from 'viem'
-import { bscTestnet } from 'viem/chains'
+import { baseSepolia } from 'viem/chains'
 import { privateKeyToAccount } from 'viem/accounts'
 
 // ReviewRegistry ABI (minimal - only what we need)
@@ -68,13 +68,13 @@ export const REVIEW_REGISTRY_ABI = [
   },
 ] as const
 
-// Contract address on BSC Testnet (will be set after deployment)
+// Contract address on Base Sepolia (will be set after deployment)
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_REVIEW_REGISTRY_ADDRESS as `0x${string}` | undefined
 
-// BSC Testnet public client
+// Base Sepolia public client
 export const publicClient = createPublicClient({
-  chain: bscTestnet,
-  transport: http('https://data-seed-prebsc-1-s1.binance.org:8545'),
+  chain: baseSepolia,
+  transport: http('https://sepolia.base.org'),
 })
 
 /**
@@ -150,17 +150,17 @@ export async function submitReviewOnChain(
 ): Promise<{ txHash: Hex; reviewId: Hex } | null> {
   if (!CONTRACT_ADDRESS) return null
 
-  const privateKey = process.env.BSC_RELAYER_PRIVATE_KEY as `0x${string}` | undefined
+  const privateKey = process.env.BASE_RELAYER_PRIVATE_KEY as `0x${string}` | undefined
   if (!privateKey) {
-    console.warn('BSC_RELAYER_PRIVATE_KEY not set, skipping on-chain submission')
+    console.warn('BASE_RELAYER_PRIVATE_KEY not set, skipping on-chain submission')
     return null
   }
 
   const account = privateKeyToAccount(privateKey)
   const walletClient = createWalletClient({
     account,
-    chain: bscTestnet,
-    transport: http('https://data-seed-prebsc-1-s1.binance.org:8545'),
+    chain: baseSepolia,
+    transport: http('https://sepolia.base.org'),
   })
 
   try {
@@ -192,10 +192,10 @@ export async function submitReviewOnChain(
 }
 
 /**
- * Get BSC Testnet explorer URL for a transaction
+ * Get Base Sepolia explorer URL for a transaction
  */
 export function getExplorerUrl(txHash: string): string {
-  return `https://testnet.bscscan.com/tx/${txHash}`
+  return `https://sepolia.basescan.org/tx/${txHash}`
 }
 
 /**

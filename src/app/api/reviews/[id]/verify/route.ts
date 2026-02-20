@@ -57,7 +57,7 @@ export async function GET(
 
 /**
  * POST /api/reviews/[id]/verify
- * Submit review to BSC on-chain (server-side relayer)
+ * Submit review to Base Sepolia on-chain (server-side relayer)
  */
 export async function POST(
   request: NextRequest,
