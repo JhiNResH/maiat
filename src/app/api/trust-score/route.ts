@@ -1,239 +1,137 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { sendReviewNeededAlert } from '@/lib/telegram-alert'
+import { calculateTrustScore } from '@/lib/trust-score'
 
-export const dynamic = 'force-dynamic'
+// In-memory rate limiting (simple implementation)
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
+const RATE_LIMIT = 30 // requests per window
+const RATE_WINDOW = 60 * 1000 // 1 minute in ms
 
-/**
- * Trust Score Algorithm:
- * 
- * Phase 1 (0 reviews): AI baseline score based on project fundamentals
- *   - Known blue-chip DeFi (Aave, Uniswap, Lido etc) → 75-90
- *   - Known AI agents with traction → 60-80
- *   - New/unknown projects → 50
- * 
- * Phase 2 (1-5 reviews): AI baseline 60% + Community 40%
- * Phase 3 (6-20 reviews): AI baseline 30% + Community 70%
- * Phase 4 (20+ reviews): AI baseline 10% + Community 90%
- */
-
-// AI baseline scores for known projects (based on TVL, age, audits, team)
-const KNOWN_SCORES: Record<string, number> = {
-  // Blue-chip DeFi
-  'aave': 88, 'uniswap': 90, 'lido': 85, 'compound': 82, 'curve finance': 84,
-  'pancakeswap': 80, 'ethena': 75, 'ether.fi': 78, 'morpho': 76, 'pendle': 74,
-  'sky (makerdao)': 86,
-  // Top AI Agents
-  'aixbt': 82, 'g.a.m.e': 78, 'luna': 75, 'vaderai': 72, 'neurobro': 68,
-  'billybets': 65, 'ethy ai': 70, 'music': 62, 'tracy.ai': 60, 'acolyt': 64,
-  '1000x': 58, 'araistotle': 56, 'ribbita': 55, 'mamo': 60, 'freya protocol': 58,
-}
-
-function getAIBaselineScore(name: string, category: string): number {
-  const known = KNOWN_SCORES[name.toLowerCase()]
-  if (known) return known
-  // Default baseline by category
-  return category === 'm/defi' ? 60 : 50
-}
-
-function calculateTrustScore(
-  aiBaseline: number,
-  avgRating: number,
-  reviewCount: number
-): { score: number; aiWeight: number; communityWeight: number } {
-  if (reviewCount === 0) {
-    return { score: aiBaseline, aiWeight: 100, communityWeight: 0 }
+function checkRateLimit(ip: string): { allowed: boolean; remaining: number; resetAt: number } {
+  const now = Date.now()
+  const record = rateLimitMap.get(ip)
+  
+  if (!record || now > record.resetAt) {
+    // New window
+    const resetAt = now + RATE_WINDOW
+    rateLimitMap.set(ip, { count: 1, resetAt })
+    return { allowed: true, remaining: RATE_LIMIT - 1, resetAt }
   }
   
-  const communityScore = Math.round(avgRating * 20) // 1-5 → 20-100
-  
-  let aiWeight: number, communityWeight: number
-  if (reviewCount <= 5) {
-    aiWeight = 60; communityWeight = 40
-  } else if (reviewCount <= 20) {
-    aiWeight = 30; communityWeight = 70
-  } else {
-    aiWeight = 10; communityWeight = 90
+  if (record.count >= RATE_LIMIT) {
+    return { allowed: false, remaining: 0, resetAt: record.resetAt }
   }
   
-  const score = Math.round((aiBaseline * aiWeight + communityScore * communityWeight) / 100)
-  return { score, aiWeight, communityWeight }
+  record.count++
+  return { allowed: true, remaining: RATE_LIMIT - record.count, resetAt: record.resetAt }
 }
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url)
-  const projectQuery = searchParams.get('project')
-  const addressQuery = searchParams.get('address')
-
-  if (!projectQuery && !addressQuery) {
+  // Get client IP for rate limiting
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0] || 
+             request.headers.get('x-real-ip') || 
+             'unknown'
+  
+  // Check rate limit
+  const rateLimit = checkRateLimit(ip)
+  
+  if (!rateLimit.allowed) {
+    const retryAfter = Math.ceil((rateLimit.resetAt - Date.now()) / 1000)
     return NextResponse.json(
-      { error: 'Missing parameter. Use ?project=<name> or ?address=<contract>' },
-      { status: 400 }
+      { 
+        error: 'Rate limit exceeded',
+        message: `Too many requests. Please try again in ${retryAfter} seconds.`,
+        retryAfter
+      },
+      { 
+        status: 429,
+        headers: {
+          'X-RateLimit-Limit': RATE_LIMIT.toString(),
+          'X-RateLimit-Remaining': '0',
+          'X-RateLimit-Reset': rateLimit.resetAt.toString(),
+          'Retry-After': retryAfter.toString()
+        }
+      }
     )
   }
 
-  const project = await prisma.project.findFirst({
-    where: addressQuery
-      ? { address: { equals: addressQuery, mode: 'insensitive' } }
-      : {
-          OR: [
-            { name: { equals: projectQuery!, mode: 'insensitive' } },
-            { slug: { equals: projectQuery!, mode: 'insensitive' } },
-            { name: { contains: projectQuery!, mode: 'insensitive' } },
-          ],
-        },
-    include: {
-      reviews: {
-        orderBy: { createdAt: 'desc' },
-        take: 20,
-        select: {
-          rating: true,
-          content: true,
-          upvotes: true,
-          downvotes: true,
-          createdAt: true,
-        },
-      },
-    },
-  })
-
-  if (!project) {
-    // Auto-create: try CoinGecko for DeFi, or create with defaults
-    const query = (projectQuery || addressQuery)!
-    try {
-      const slug = query.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-      const cgRes = await fetch(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(query)}`)
-      const cgData = cgRes.ok ? await cgRes.json() : null
-      const coin = cgData?.coins?.[0]
-      
-      const newProject = await prisma.project.create({
-        data: {
-          id: crypto.randomUUID(),
-          address: addressQuery || `auto:${slug}`,
-          name: coin?.name || query,
-          slug: slug,
-          description: coin ? `${coin.name} (${coin.symbol?.toUpperCase()})` : `Auto-discovered project: ${query}`,
-          category: 'defi',
-          image: coin?.large || coin?.thumb || null,
-          status: 'active',
-          avgRating: 0,
-          reviewCount: 0,
-          updatedAt: new Date(),
-        },
-      })
-      
-      const aiBaseline = getAIBaselineScore(newProject.name, newProject.category)
-      const responseData = {
-        project: newProject.name,
-        category: 'DeFi',
-        contract: newProject.address,
-        website: null,
-        chain: 'Ethereum',
-        trustScore: aiBaseline,
-        riskLevel: aiBaseline >= 80 ? 'Low' : aiBaseline >= 50 ? 'Medium' : 'High',
-        scoreBreakdown: {
-          aiBaseline,
-          communityScore: null,
-          aiWeight: 100,
-          communityWeight: 0,
-          note: 'New project — AI-only score. Be the first to review!',
-        },
-        reviewCount: 0,
-        avgRating: 0,
-        sentiment: null,
-        ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
-        strengths: [],
-        concerns: [],
-        recommendation: 'New project — insufficient data. Do your own research.',
-        lastReviewAt: null,
-        dataSource: 'maiat.vercel.app',
-        autoCreated: true,
-      }
-
-      sendReviewNeededAlert(newProject.name, aiBaseline, 0, newProject.slug, 'auto-created')
-        .catch(() => {})
-
-      return NextResponse.json(responseData, {
-        headers: { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'public, max-age=60' },
-      })
-    } catch {
+  try {
+    const { searchParams } = new URL(request.url)
+    const token = searchParams.get('token')
+    const slug = searchParams.get('slug')
+    
+    const identifier = token || slug
+    
+    if (!identifier) {
       return NextResponse.json(
-        { error: `Project not found: ${query}` },
-        { status: 404 }
+        { 
+          error: 'Missing parameter',
+          message: 'Please provide either ?token=0x... or ?slug=project-name'
+        },
+        { 
+          status: 400,
+          headers: {
+            'X-RateLimit-Limit': RATE_LIMIT.toString(),
+            'X-RateLimit-Remaining': rateLimit.remaining.toString(),
+            'X-RateLimit-Reset': rateLimit.resetAt.toString()
+          }
+        }
       )
     }
+
+    // Calculate trust score
+    const result = await calculateTrustScore(identifier)
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: result
+      },
+      {
+        status: 200,
+        headers: {
+          'X-RateLimit-Limit': RATE_LIMIT.toString(),
+          'X-RateLimit-Remaining': rateLimit.remaining.toString(),
+          'X-RateLimit-Reset': rateLimit.resetAt.toString(),
+          'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120'
+        }
+      }
+    )
+  } catch (error: any) {
+    console.error('Trust score API error:', error)
+    
+    // Project not found
+    if (error.message?.includes('not found')) {
+      return NextResponse.json(
+        { 
+          error: 'Project not found',
+          message: error.message
+        },
+        { 
+          status: 404,
+          headers: {
+            'X-RateLimit-Limit': RATE_LIMIT.toString(),
+            'X-RateLimit-Remaining': rateLimit.remaining.toString(),
+            'X-RateLimit-Reset': rateLimit.resetAt.toString()
+          }
+        }
+      )
+    }
+
+    // Internal server error
+    return NextResponse.json(
+      { 
+        error: 'Internal server error',
+        message: 'Failed to calculate trust score',
+        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      },
+      { 
+        status: 500,
+        headers: {
+          'X-RateLimit-Limit': RATE_LIMIT.toString(),
+          'X-RateLimit-Remaining': rateLimit.remaining.toString(),
+          'X-RateLimit-Reset': rateLimit.resetAt.toString()
+        }
+      }
+    )
   }
-
-  const aiBaseline = getAIBaselineScore(project.name, project.category)
-  const { score: trustScore, aiWeight, communityWeight } = calculateTrustScore(
-    aiBaseline, project.avgRating, project.reviewCount
-  )
-  const riskLevel = trustScore >= 80 ? 'Low' : trustScore >= 50 ? 'Medium' : 'High'
-
-  // Sentiment
-  const totalUpvotes = project.reviews.reduce((s, r) => s + r.upvotes, 0)
-  const totalDownvotes = project.reviews.reduce((s, r) => s + r.downvotes, 0)
-  const sentiment = totalUpvotes + totalDownvotes > 0
-    ? Math.round((totalUpvotes / (totalUpvotes + totalDownvotes)) * 100)
-    : null
-
-  // Rating distribution
-  const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } as Record<number, number>
-  project.reviews.forEach(r => {
-    if (r.rating >= 1 && r.rating <= 5) distribution[r.rating]++
-  })
-
-  const concerns = project.reviews.filter(r => r.rating <= 2 && r.content.length > 20).slice(0, 3).map(r => r.content.slice(0, 150))
-  const strengths = project.reviews.filter(r => r.rating >= 4 && r.content.length > 20).slice(0, 3).map(r => r.content.slice(0, 150))
-
-  const chain = project.category === 'm/ai-agents' ? 'Base' : 
-    project.name === 'PancakeSwap' ? 'BNB Chain' : 'Ethereum'
-
-  const responseData = {
-    project: project.name,
-    category: project.category === 'm/ai-agents' ? 'AI Agent' : 'DeFi',
-    contract: project.address,
-    website: project.website,
-    chain,
-    trustScore,
-    riskLevel,
-    scoreBreakdown: {
-      aiBaseline,
-      communityScore: project.reviewCount > 0 ? Math.round(project.avgRating * 20) : null,
-      aiWeight,
-      communityWeight,
-      note: project.reviewCount === 0
-        ? 'AI-only score. Write reviews to refine.'
-        : `Weighted: AI ${aiWeight}% + Community ${communityWeight}%`,
-    },
-    reviewCount: project.reviewCount,
-    avgRating: project.avgRating,
-    sentiment,
-    ratingDistribution: distribution,
-    strengths,
-    concerns,
-    recommendation: trustScore >= 80
-      ? 'Highly trusted — established project with strong fundamentals'
-      : trustScore >= 65
-        ? 'Generally trusted — solid with minor concerns'
-        : trustScore >= 50
-          ? 'Mixed signals — do your own research'
-          : 'Low trust — significant concerns or insufficient data',
-    lastReviewAt: project.reviews[0]?.createdAt || null,
-    dataSource: 'maiat.vercel.app',
-  }
-
-  // Send Telegram alert if project needs more reviews
-  if (project.reviewCount < 5) {
-    const queriedBy = request.headers.get('x-agent-address') || request.headers.get('user-agent')?.slice(0, 50)
-    sendReviewNeededAlert(project.name, trustScore, project.reviewCount, project.slug, queriedBy || undefined)
-      .catch(() => {}) // fire-and-forget, don't block response
-  }
-
-  return NextResponse.json(responseData, {
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Cache-Control': 'public, max-age=60',
-    },
-  })
 }
