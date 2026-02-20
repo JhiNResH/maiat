@@ -47,6 +47,8 @@ export async function POST(request: NextRequest) {
       await handleRecommend(chatId, text)
     } else if (text.startsWith('/review')) {
       await showProjectsForReview(chatId)
+    } else if (text.startsWith('/swap')) {
+      await handleSwap(chatId, text)
     } else if (text.startsWith('/help')) {
       await sendHelp(chatId)
     } else {
@@ -68,12 +70,12 @@ export async function POST(request: NextRequest) {
 }
 
 async function sendWelcome(chatId: number) {
-  const text = `☕ <b>Welcome to Maiat</b>\nThe trust score layer for agentic commerce.\n\n🔍 <b>/recommend coffee</b> — Find the best coffee\n✍️ <b>/review</b> — Write a verified review\n❓ <b>/help</b> — How it works\n\nOr just ask me: <i>"Which coffee shop is the best?"</i>`
+  const text = `☕ <b>Welcome to Maiat</b>\nThe trust score layer for agentic commerce.\n\n🔍 <b>/recommend coffee</b> — Find the best coffee\n✍️ <b>/review</b> — Write a verified review\n🔄 <b>/swap ETH USDC 0.1</b> — Trust-gated swap\n❓ <b>/help</b> — How it works\n\nOr just ask me: <i>"Which coffee shop is the best?"</i>`
 
   await sendMessage(chatId, text, {
     inline_keyboard: [
       [{ text: '☕ Best Coffee', callback_data: 'recommend_coffee' }, { text: '✍️ Write Review', callback_data: 'start_review' }],
-      [{ text: '🌐 Open Maiat', url: WEBAPP_URL }],
+      [{ text: '🔄 Swap', url: `${WEBAPP_URL}/swap` }, { text: '🌐 Open Maiat', url: WEBAPP_URL }],
     ]
   })
 }
@@ -344,6 +346,86 @@ async function handleReviewFlow(chatId: number, userId: number, text: string, us
   }
 }
 
+async function handleSwap(chatId: number, text: string) {
+  // Parse: /swap ETH USDC 0.1
+  const parts = text.split(/\s+/)
+  const tokenInSymbol = (parts[1] || 'ETH').toUpperCase()
+  const tokenOutSymbol = (parts[2] || 'USDC').toUpperCase()
+  const amount = parts[3] || '0.01'
+
+  const tokens: Record<string, { address: string; decimals: number }> = {
+    'ETH': { address: '0x0000000000000000000000000000000000000000', decimals: 18 },
+    'WETH': { address: '0x4200000000000000000000000000000000000006', decimals: 18 },
+    'USDC': { address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', decimals: 6 },
+  }
+
+  const tIn = tokens[tokenInSymbol]
+  const tOut = tokens[tokenOutSymbol]
+
+  if (!tIn || !tOut) {
+    await sendMessage(chatId, `❌ Unknown token. Supported: ETH, WETH, USDC\n\nUsage: <code>/swap ETH USDC 0.1</code>`)
+    return
+  }
+
+  await sendMessage(chatId, `🔄 Getting trust-gated quote for ${amount} ${tokenInSymbol} → ${tokenOutSymbol}...`)
+
+  try {
+    const amountWei = BigInt(Math.floor(parseFloat(amount) * (10 ** tIn.decimals))).toString()
+
+    const res = await fetch(`${WEBAPP_URL}/api/swap`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tokenIn: tIn.address,
+        tokenOut: tOut.address,
+        amount: amountWei,
+        chainId: 8453,
+        swapper: '0x0000000000000000000000000000000000000001',
+        type: 'EXACT_INPUT',
+      }),
+    })
+
+    const data = await res.json()
+
+    if (data.error) {
+      await sendMessage(chatId, `❌ ${data.error}`)
+      return
+    }
+
+    const trustEmoji = !data.allowed ? '🔴' : data.warning ? '🟡' : '🟢'
+    const trustLabel = !data.allowed ? 'BLOCKED' : data.warning ? 'CAUTION' : 'SAFE'
+    
+    let text = `${trustEmoji} <b>Trust-Gated Swap Quote</b>\n\n`
+    text += `📊 ${amount} ${tokenInSymbol} → ${tokenOutSymbol}\n`
+    
+    if (data.trustScore !== undefined) {
+      text += `🛡️ Trust Score: <b>${data.trustScore}/100</b> (${trustLabel})\n`
+    }
+
+    if (data.warning) {
+      text += `\n⚠️ ${data.warning}\n`
+    }
+
+    if (!data.allowed) {
+      text += `\n❌ Swap blocked for your protection.`
+    }
+
+    if (data.quote?.routing) {
+      text += `\n🔀 Route: ${data.quote.routing}`
+    }
+
+    text += `\n\n<i>Powered by Uniswap API × Maiat Trust Layer</i>`
+
+    await sendMessage(chatId, text, {
+      inline_keyboard: [
+        [{ text: '🔄 Swap on Maiat', url: `${WEBAPP_URL}/swap` }],
+      ]
+    })
+  } catch (e: any) {
+    await sendMessage(chatId, `❌ Swap quote failed: ${e.message}`)
+  }
+}
+
 async function handleNaturalLanguage(chatId: number, userId: number, text: string) {
   const lower = text.toLowerCase()
   if (lower.includes('coffee') || lower.includes('咖啡') || lower.includes('cafe') || lower.includes('brew')) {
@@ -352,6 +434,8 @@ async function handleNaturalLanguage(chatId: number, userId: number, text: strin
     await handleRecommend(chatId, 'defi protocol')
   } else if (lower.includes('agent') || lower.includes('ai') || lower.includes('bot')) {
     await handleRecommend(chatId, 'ai agent')
+  } else if (lower.includes('swap') || lower.includes('trade') || lower.includes('exchange') || lower.includes('買') || lower.includes('換')) {
+    await handleSwap(chatId, '/swap ETH USDC 0.01')
   } else if (lower.includes('review') || lower.includes('評論') || lower.includes('rate')) {
     await showProjectsForReview(chatId)
   } else {
