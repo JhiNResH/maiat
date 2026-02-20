@@ -98,7 +98,10 @@ Next person asks → Your verified review helps them decide
 - **How:** Users prove humanity via Base Verify Mini App → "Verified Human" badge on profile and reviews
 - **Endpoint:** `POST /api/verify-base`
 - **App ID:** `699600ef25337829d86a5475`
-- **Chain:** Base Sepolia (84532)
+- **Bounty Code:** `bc_cozhkj23`
+- **Chain:** Base (8453)
+- **Meta Tags:** `base:app_id` + `base:bounty_code` in `<head>`
+- **Component:** `BaseVerifyButton` — verified humans' reviews get weighted higher in trust scores
 
 **Full Flow:**
 ```
