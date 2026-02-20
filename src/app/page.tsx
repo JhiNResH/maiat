@@ -5,6 +5,7 @@ import { ThemeToggle } from '@/components/ThemeToggle'
 import { SearchBar } from '@/components/SearchBar'
 import { CategoryTabs } from '@/components/CategoryTabs'
 import { TrustScoreTooltip } from '@/components/TrustScoreTooltip'
+import { SwapWidget } from '@/components/SwapWidget'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -14,6 +15,7 @@ const CATEGORIES = [
   { key: 'ai-agents', label: 'AI Agents', dbValue: 'm/ai-agents' },
   { key: 'defi', label: 'DeFi', dbValue: 'm/defi' },
   { key: 'coffee', label: 'Coffee', dbValue: 'm/coffee' },
+  { key: 'swap', label: 'Swap' },
 ]
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<{ q?: string; cat?: string }> }) {
@@ -56,7 +58,6 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         </div>
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <ThemeToggle />
-          <Link href="/swap" className="text-xs font-mono text-blue-600 hover:underline hidden sm:inline px-2 py-1 border border-blue-200 dark:border-blue-800 rounded">Swap</Link>
           <a href="https://t.me/MaiatBot" className="text-xs font-mono text-blue-600 hover:underline hidden sm:inline">@MaiatBot</a>
         </div>
       </header>
@@ -125,6 +126,11 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
         {/* Category Tabs */}
         <CategoryTabs categories={CATEGORIES.map(c => ({ key: c.key, label: c.label }))} activeKey={activeCat.key} />
 
+        {/* Swap Tab */}
+        {activeCat.key === 'swap' ? (
+          <SwapWidget />
+        ) : (
+        <>
         {/* Table */}
         <div className="bg-white dark:bg-[#1a1b23] border border-gray-200 dark:border-gray-700 rounded-md overflow-hidden">
           <div className="px-4 py-2.5 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-[#0f1117]">
@@ -232,6 +238,8 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             })}
           </div>
         </div>
+        </>
+        )}
 
         {/* Footer */}
         <div className="mt-4 text-center text-xs font-mono text-gray-400 dark:text-gray-500 py-4">
