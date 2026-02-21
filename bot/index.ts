@@ -863,8 +863,11 @@ bot.on('message:text', async (ctx) => {
       }
     })
 
-    // Award Scarab
-    const scarabReward = 5
+    // Award Scarab — scale with review quality
+    const scarabReward = analysis.quality === 'high' ? 15 
+      : analysis.quality === 'medium' ? 10 
+      : analysis.quality === 'low' ? 5 
+      : 2 // spam that somehow passed
     await prisma.scarabBalance.upsert({
       where: { address },
       create: {

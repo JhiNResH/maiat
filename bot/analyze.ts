@@ -57,7 +57,20 @@ Respond in JSON only:
     return { quality: 'medium', score: 50, reason: 'Could not analyze', isUseful: true }
   } catch (error) {
     console.error('Gemini analysis error:', error)
-    // On error, allow the review through
-    return { quality: 'medium', score: 50, reason: 'Analysis unavailable', isUseful: true }
+    // Smart mock: score based on review length + specificity
+    const words = content.split(/\s+/).length
+    const hasSpecifics = /price|fee|speed|ui|ux|team|token|contract|apy|yield|bug|scam|legit|safe|risk/i.test(content)
+    const hasDetail = words > 15
+    
+    if (words < 5) {
+      return { quality: 'low', score: 25, reason: 'Review is too short — add more detail about your experience.', isUseful: false }
+    }
+    if (hasSpecifics && hasDetail) {
+      return { quality: 'high', score: 85, reason: 'Specific and detailed review with relevant project insights.', isUseful: true }
+    }
+    if (hasSpecifics || hasDetail) {
+      return { quality: 'medium', score: 65, reason: 'Decent review — adding more specific details would improve quality.', isUseful: true }
+    }
+    return { quality: 'medium', score: 50, reason: 'Basic review — try mentioning specific features or experiences.', isUseful: true }
   }
 }
