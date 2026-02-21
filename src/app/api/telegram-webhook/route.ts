@@ -614,28 +614,28 @@ async function generateAIAnalysis(
     `- ${r.rating}★: "${r.content.slice(0, 150)}"`
   ).join('\n')
 
-  const prompt = `You are Maiat's trust analysis engine. Give a concise 3-4 sentence analysis of this crypto project's trustworthiness. Be direct and specific. Use data provided.
+  const prompt = `You are Maiat, a crypto trust analysis engine. Write a comprehensive trust report for this project. Be specific with real facts you know about this project.
 
 Project: ${projectName}
 Category: ${category}
 Overall Trust Score: ${score}/100
-Breakdown:
-- On-chain Activity: ${breakdown.onChainActivity}/100
-- Verified Reviews: ${breakdown.verifiedReviews}/100  
-- Community Trust: ${breakdown.communityTrust}/100
-- AI Baseline: ${breakdown.aiQuality}/100
+Breakdown: On-chain ${breakdown.onChainActivity}, Reviews ${breakdown.verifiedReviews}, Community ${breakdown.communityTrust}, AI Baseline ${breakdown.aiQuality}
 Average Rating: ${avgRating}/5 from ${reviewCount} reviews
 
-Recent Reviews:
+User Reviews:
 ${reviewSummary || 'No reviews yet.'}
 
-Write analysis in this format:
-1. Overall assessment (1 sentence)
-2. Key strength (1 sentence)
-3. Key risk/weakness (1 sentence)
-4. Recommendation for traders (1 sentence)
+Write in this EXACT format (use these emoji headers, keep each section 1-2 sentences):
 
-Keep it under 400 chars. No markdown, no bullet points, just flowing text.`
+📌 SUMMARY: What this project is and why it matters.
+🔒 SECURITY: Audit history, exploits, code quality.
+💧 LIQUIDITY: TVL, volume, market presence.
+👥 TEAM: Known team, governance, track record.
+⚡ STRENGTHS: Top 2 strengths.
+⚠️ RISKS: Top 2 risks or concerns.
+🎯 VERDICT: One-line recommendation for traders/users.
+
+Use real knowledge about ${projectName}. Keep total under 800 chars.`
 
   try {
     const res = await fetch(
@@ -645,7 +645,7 @@ Keep it under 400 chars. No markdown, no bullet points, just flowing text.`
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { maxOutputTokens: 200, temperature: 0.3 },
+          generationConfig: { maxOutputTokens: 500, temperature: 0.4 },
         }),
       }
     )
@@ -701,37 +701,27 @@ async function handleTrustQuery(chatId: number, text: string) {
     project.reviews, project.avgRating, project.reviewCount
   )
 
-  let msg = `🛡️ <b>Trust Analysis: ${project.name}</b>\n\n`
-  msg += `📊 Overall Score: <b>${score}/100</b> ${riskLevel}\n`
-  msg += `⭐ Rating: ${stars} (${project.avgRating.toFixed(1)}) · ${project.reviewCount} reviews\n`
-  msg += `📁 ${project.category.replace('m/', '').toUpperCase()}\n\n`
+  let msg = `🛡️ <b>${project.name} Trust Report</b>\n`
+  msg += `━━━━━━━━━━━━━━━━━━━━\n`
+  msg += `📊 <b>${score}/100</b> ${riskLevel} · ${stars} (${project.avgRating.toFixed(1)}) · ${project.reviewCount} reviews\n\n`
 
-  // Breakdown bars
-  msg += `<b>📋 Score Breakdown</b>\n`
-  msg += `⛓️ On-chain Activity: ${breakdown.onChainActivity}/100 ${getBar(breakdown.onChainActivity)}\n`
-  msg += `✅ Verified Reviews: ${breakdown.verifiedReviews}/100 ${getBar(breakdown.verifiedReviews)}\n`
-  msg += `👥 Community Trust: ${breakdown.communityTrust}/100 ${getBar(breakdown.communityTrust)}\n`
-  msg += `🤖 AI Baseline: ${breakdown.aiQuality}/100 ${getBar(breakdown.aiQuality)}\n`
-
-  // AI Analysis
+  // AI Analysis (main content)
   if (aiAnalysis) {
-    msg += `\n🧠 <b>AI Analysis</b>\n<i>${aiAnalysis}</i>\n`
+    msg += `${aiAnalysis}\n\n`
   }
 
-  // Swap recommendation
-  if (score < 30) msg += `\n🚫 <b>BLOCKED — Trust too low for trust-gated swap.</b>\n`
-  else if (score < 60) msg += `\n⚠️ <b>CAUTION — Moderate trust. Swap with care.</b>\n`
-  else msg += `\n✅ <b>SAFE — Cleared for trust-gated swap.</b>\n`
+  // Compact breakdown
+  msg += `━━━━━━━━━━━━━━━━━━━━\n`
+  msg += `<b>Score Breakdown</b>\n`
+  msg += `⛓️ On-chain  ${getBar(breakdown.onChainActivity)} ${breakdown.onChainActivity}\n`
+  msg += `✅ Reviews   ${getBar(breakdown.verifiedReviews)} ${breakdown.verifiedReviews}\n`
+  msg += `👥 Community ${getBar(breakdown.communityTrust)} ${breakdown.communityTrust}\n`
+  msg += `🤖 AI Base   ${getBar(breakdown.aiQuality)} ${breakdown.aiQuality}\n`
 
-  // Latest reviews
-  if (project.reviews.length > 0) {
-    msg += `\n💬 <b>Latest Reviews:</b>\n`
-    project.reviews.slice(0, 3).forEach(r => {
-      const reviewer = r.reviewer?.displayName || 'Anon'
-      const verified = r.txHash ? ' ✅' : ''
-      msg += `\n"<i>${r.content.slice(0, 100)}${r.content.length > 100 ? '...' : ''}</i>"\n— ${reviewer} ${'⭐'.repeat(r.rating)}${verified}\n`
-    })
-  }
+  // Swap gate status
+  if (score < 30) msg += `\n🚫 <b>SWAP BLOCKED</b> — Trust too low.\n`
+  else if (score < 60) msg += `\n⚠️ <b>SWAP CAUTION</b> — Moderate trust.\n`
+  else msg += `\n✅ <b>SWAP CLEARED</b>\n`
 
   await sendMessage(chatId, msg, {
     inline_keyboard: [
