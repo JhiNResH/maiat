@@ -103,7 +103,7 @@ export default async function ProjectDetailPage({
       {/* Header */}
       <header className="bg-white border-b border-gray-200 px-3 sm:px-6 py-3 flex items-center gap-2">
         <Link href="/" className="flex items-center gap-2 shrink-0 hover:opacity-70">
-          <img src="/maiat-rmbg.png" alt="MAIAT" className="w-8 h-8" />
+          <img src="/logo-light.png" alt="MAIAT" className="w-8 h-8 block dark:hidden" /><img src="/logo-light.png" alt="MAIAT" className="w-8 h-8 hidden dark:block" />
           <span className="text-xl font-bold tracking-tight font-mono text-gray-900">MAIAT</span>
         </Link>
         <div className="flex-1" />

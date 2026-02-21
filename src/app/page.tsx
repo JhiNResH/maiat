@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { getSimpleTrustScore } from '@/lib/trust-score'
 import Link from 'next/link'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import { LiveRefresh } from '@/components/LiveRefresh'
 import { SearchBar } from '@/components/SearchBar'
 import { CategoryTabs } from '@/components/CategoryTabs'
 import { TrustScoreTooltip } from '@/components/TrustScoreTooltip'
@@ -12,9 +13,9 @@ export const revalidate = 0
 
 const CATEGORIES = [
   { key: 'all', label: 'All' },
-  { key: 'ai-agents', label: 'AI Agents', dbValue: 'm/ai-agents' },
-  { key: 'defi', label: 'DeFi', dbValue: 'm/defi' },
-  { key: 'coffee', label: 'Coffee', dbValue: 'm/coffee' },
+  { key: 'ai-agents', label: '🤖 AI Agents', dbValue: 'm/ai-agents' },
+  { key: 'defi', label: '🏦 DeFi', dbValue: 'm/defi' },
+  { key: 'coffee', label: '☕ Coffee', dbValue: 'm/coffee' },
 ]
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<{ q?: string; cat?: string; view?: string }> }) {
@@ -50,7 +51,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       {/* Header */}
       <header className="bg-white dark:bg-[#1a1b23] border-b border-gray-200 dark:border-gray-700 px-3 sm:px-6 py-3 flex items-center gap-2">
         <Link href="/" className="flex items-center gap-1.5 sm:gap-2 shrink-0 hover:opacity-70 transition-opacity">
-          <img src="/maiat-rmbg.png" alt="MAIAT" className="w-7 h-7 sm:w-8 sm:h-8" />
+          <img src="/logo-light.png" alt="MAIAT" className="w-7 h-7 sm:w-8 sm:h-8 object-contain" />
           <h1 className="text-lg sm:text-xl font-bold tracking-tight font-mono text-gray-900 dark:text-gray-100">MAIAT</h1>
         </Link>
         <div className="flex-1 flex justify-center px-2 sm:px-8">
@@ -60,6 +61,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
           <Link href={isSwap ? '/' : '/?view=swap'} className={`text-xs font-mono px-2.5 py-1 rounded-md transition-colors ${isSwap ? 'bg-blue-600 text-white' : 'text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20'}`}>
             Swap
           </Link>
+          <LiveRefresh />
           <ThemeToggle />
           <a href="https://t.me/MaiatBot" className="text-xs font-mono text-blue-600 hover:underline hidden sm:inline">@MaiatBot</a>
         </div>

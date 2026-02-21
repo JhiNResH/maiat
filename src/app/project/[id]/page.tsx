@@ -130,7 +130,7 @@ export default async function ProjectPage({ params }: Props) {
       {/* Header */}
       <header className="bg-white dark:bg-[#1a1b23] border-b border-gray-200 dark:border-gray-700 px-3 sm:px-6 py-3 flex items-center gap-2">
         <Link href="/" className="flex items-center gap-2 shrink-0 hover:opacity-70">
-          <img src="/maiat-rmbg.png" alt="MAIAT" className="w-8 h-8" />
+          <img src="/logo-light.png" alt="MAIAT" className="w-8 h-8 block dark:hidden" /><img src="/logo-light.png" alt="MAIAT" className="w-8 h-8 hidden dark:block" />
           <span className="text-xl font-bold tracking-tight font-mono text-gray-900 dark:text-gray-100">MAIAT</span>
         </Link>
         <div className="flex-1 flex justify-center px-8">

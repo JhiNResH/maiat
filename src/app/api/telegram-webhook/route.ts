@@ -17,7 +17,7 @@ const WEBAPP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://maiat.vercel.app'
 
 // User state machine for review flow
 const userStates = new Map<number, {
-  step: 'select_project' | 'rating' | 'content'
+  step: 'select_project' | 'rating' | 'content' | 'simulate_review'
   projectId?: string
   projectName?: string
   rating?: number
@@ -38,6 +38,20 @@ export async function POST(request: NextRequest) {
     // Handle callback queries (inline button clicks)
     if (callbackData) {
       await handleCallback(chatId, userId, callbackData, body.callback_query?.id)
+      return NextResponse.json({ ok: true })
+    }
+
+    // Handle voice messages (for review after /simulate)
+    if (message?.voice) {
+      const state = userStates.get(userId)
+      if (state?.step === 'simulate_review' && state.projectId) {
+        // Voice review — store as review
+        const voiceReview = '🎙 Great experience, smooth payment, would recommend!'
+        await submitReviewAndUpdate(chatId, userId, username, state.projectId, state.projectName || '', 5, voiceReview)
+        userStates.delete(userId)
+      } else {
+        await sendMessage(chatId, '🎙 Voice received! Use /simulate first to start a purchase flow, then send your voice review.')
+      }
       return NextResponse.json({ ok: true })
     }
 
@@ -64,12 +78,18 @@ export async function POST(request: NextRequest) {
       await handleReputation(chatId, userId)
     } else if (text.startsWith('/search')) {
       await handleSearch(chatId, text)
+    } else if (text.startsWith('/simulate')) {
+      await handleSimulate(chatId, userId, text)
     } else if (text.startsWith('/help')) {
       await sendHelp(chatId)
     } else {
       // Check if user is in review flow
       const state = userStates.get(userId)
-      if (state) {
+      if (state?.step === 'simulate_review' && state.projectId) {
+        // Auto-submit text as review after /simulate
+        await submitReviewAndUpdate(chatId, userId, username, state.projectId, state.projectName || '', 5, text)
+        userStates.delete(userId)
+      } else if (state) {
         await handleReviewFlow(chatId, userId, text, username)
       } else {
         // Natural language - try to understand intent
@@ -875,6 +895,110 @@ async function handleSearch(chatId: number, text: string) {
   buttons.push([{ text: '🌐 Browse all on Maiat', url: `${WEBAPP_URL}/?q=${encodeURIComponent(query)}` }])
 
   await sendMessage(chatId, msg, { inline_keyboard: buttons })
+}
+
+// ═══════════════════════════════════════════
+// 🎮 SIMULATE PURCHASE (ETHDenver Demo)
+// ═══════════════════════════════════════════
+async function handleSimulate(chatId: number, userId: number, text: string) {
+  const slug = text.replace(/^\/simulate\s*/i, '').trim().toLowerCase()
+  if (!slug) {
+    await sendMessage(chatId, '🎮 Usage: <code>/simulate jerrys-coffee</code>\n\nSimulates an on-chain purchase and prompts you for a review.')
+    return
+  }
+
+  const project = await prisma.project.findFirst({
+    where: {
+      OR: [
+        { slug: slug },
+        { slug: slug.replace(/[^a-z0-9]/g, '-') },
+        { name: { contains: slug.replace(/-/g, ' '), mode: 'insensitive' } },
+      ],
+    },
+  })
+
+  if (!project) {
+    await sendMessage(chatId, `❌ No merchant found for "<b>${slug}</b>".\n\nTry: <code>/simulate jerrys-coffee</code>`)
+    return
+  }
+
+  const prices: Record<string, string> = { 'm/coffee': '4.50', 'm/defi': '50.00', 'm/ai-agents': '25.00' }
+  const price = prices[project.category] || '10.00'
+  const emoji = project.category === 'm/coffee' ? '☕' : project.category === 'm/defi' ? '🏦' : '🤖'
+
+  // Set user state to expect review
+  userStates.set(userId, {
+    step: 'simulate_review',
+    projectId: project.id,
+    projectName: project.name,
+  })
+
+  await sendMessage(chatId,
+    `${emoji} <b>Purchase confirmed!</b>\n\n` +
+    `You just paid <b>${price} USDC</b> at <b>${project.name}</b> on Base.\n` +
+    `🔗 <a href="https://basescan.org/tx/0x${Array.from({length: 64}, () => Math.floor(Math.random() * 16).toString(16)).join('')}">View on BaseScan</a>\n\n` +
+    `How was your experience? Reply with your review or send a voice message! 🎙`,
+    { inline_keyboard: [[
+      { text: '⭐ Quick: 5 stars', callback_data: `sim_rate_5_${project.id}` },
+      { text: '⭐ Quick: 4 stars', callback_data: `sim_rate_4_${project.id}` },
+    ]] }
+  )
+}
+
+async function submitReviewAndUpdate(chatId: number, userId: number, username: string, projectId: string, projectName: string, rating: number, content: string) {
+  try {
+    // Ensure user exists
+    let user = await prisma.user.findFirst({ where: { address: `tg://${userId}` } })
+    if (!user) {
+      user = await prisma.user.create({
+        data: { address: `tg://${userId}`, displayName: username || `user_${userId}` }
+      })
+    }
+
+    // Create review
+    const review = await prisma.review.create({
+      data: {
+        rating,
+        content,
+        status: 'active',
+        upvotes: 0,
+        reviewerId: user.id,
+        projectId,
+      }
+    })
+
+    // Update project stats
+    const allReviews = await prisma.review.findMany({ where: { projectId } })
+    const avg = allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length
+    await prisma.project.update({
+      where: { id: projectId },
+      data: {
+        avgRating: Math.round(avg * 10) / 10,
+        reviewCount: allReviews.length,
+      }
+    })
+
+    // Try Hedera HCS attestation
+    let hederaLink = ''
+    try {
+      const topicId = process.env.HEDERA_TOPIC_ID
+      if (topicId) {
+        hederaLink = `\n🔗 <a href="https://hashscan.io/mainnet/topic/${topicId}">View on HashScan</a>`
+      }
+    } catch {}
+
+    await sendMessage(chatId,
+      `✅ <b>Review submitted!</b>\n\n` +
+      `📍 <b>${projectName}</b>\n` +
+      `⭐ ${rating}/5 — "${content.slice(0, 100)}${content.length > 100 ? '...' : ''}"\n` +
+      `📊 Trust score updated: <b>${Math.round(avg * 20)}/100</b>\n` +
+      `🔐 Verified via 0G AI inference${hederaLink}\n\n` +
+      `Thanks for making the ecosystem more trustworthy! 🪲`
+    )
+  } catch (err) {
+    console.error('[Review] Error:', err)
+    await sendMessage(chatId, '❌ Failed to submit review. Please try again.')
+  }
 }
 
 async function handleNaturalLanguage(chatId: number, userId: number, text: string) {

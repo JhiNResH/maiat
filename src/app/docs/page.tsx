@@ -129,7 +129,7 @@ export default function DocsPage() {
       <header className="bg-white dark:bg-[#1a1b23] border-b border-gray-200 dark:border-gray-700 px-6 py-3">
         <div className="max-w-4xl mx-auto flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
-            <img src="/maiat-rmbg.png" alt="MAIAT" className="w-7 h-7" />
+            <img src="/logo-light.png" alt="MAIAT" className="w-7 h-7 block dark:hidden" /><img src="/logo-light.png" alt="MAIAT" className="w-7 h-7 hidden dark:block" />
             <span className="text-lg font-bold font-mono text-gray-900 dark:text-gray-100">MAIAT</span>
             <span className="text-xs font-mono text-gray-400 ml-2">/ docs</span>
           </Link>

@@ -13,6 +13,7 @@ const prisma = new PrismaClient()
 
 interface ProjectSeed {
   name: string
+  slug?: string
   address: string
   description: string
   image?: string
@@ -29,9 +30,10 @@ interface ProjectSeed {
 const aiAgents: ProjectSeed[] = [
   {
     name: 'AIXBT',
+    slug: 'aixbt',
     address: 'virtual://aixbt',
     description: 'AI market intelligence agent monitoring 400+ crypto KOLs. Generates real-time alpha signals, sentiment analysis, and trend detection. Peaked at $500M market cap. The on-chain Bloomberg terminal.',
-    image: 'https://img.icons8.com/fluency/96/stocks.png',
+    image: '/icons/stocks.png',
     website: 'https://app.virtuals.io/virtuals/aixbt',
     category: 'm/ai-agents',
     status: 'approved',
@@ -40,9 +42,10 @@ const aiAgents: ProjectSeed[] = [
   },
   {
     name: 'Luna',
+    slug: 'luna',
     address: 'virtual://luna',
     description: '24/7 AI livestreamer and virtual idol with 500K+ TikTok followers. First autonomous AI entertainer on Virtuals Protocol. Generates revenue through donations and agent commerce.',
-    image: 'https://img.icons8.com/fluency/96/star.png',
+    image: '/icons/star.png',
     website: 'https://app.virtuals.io/virtuals/luna',
     category: 'm/ai-agents',
     status: 'approved',
@@ -51,9 +54,10 @@ const aiAgents: ProjectSeed[] = [
   },
   {
     name: 'G.A.M.E',
+    slug: 'game',
     address: 'virtual://game',
     description: 'Virtuals Protocol core agent framework. Enables developers to build, deploy, and monetize autonomous AI agents. Powers the entire Virtuals ecosystem with configurable agent behaviors.',
-    image: 'https://img.icons8.com/fluency/96/game-controller.png',
+    image: '/icons/controller.png',
     website: 'https://docs.game.virtuals.io',
     category: 'm/ai-agents',
     status: 'approved',
@@ -62,9 +66,10 @@ const aiAgents: ProjectSeed[] = [
   },
   {
     name: 'VaderAI',
+    slug: 'vaderai',
     address: 'virtual://vaderai',
     description: 'Autonomous DeFi trading agent. Executes strategies across DEXs, analyzes on-chain data, and manages portfolio allocation. One of the earliest revenue-generating agents on Virtuals.',
-    image: 'https://img.icons8.com/fluency/96/darth-vader.png',
+    image: '/icons/ninja-head.png',
     website: 'https://app.virtuals.io/virtuals/vader',
     category: 'm/ai-agents',
     status: 'approved',
@@ -73,9 +78,10 @@ const aiAgents: ProjectSeed[] = [
   },
   {
     name: 'Acolyt',
+    slug: 'acolyt',
     address: 'virtual://acolyt',
     description: 'On-chain research and analysis agent. Deep dives into protocol mechanics, tokenomics, and smart contract risk. Trusted by traders for pre-investment due diligence.',
-    image: 'https://img.icons8.com/fluency/96/search.png',
+    image: '/icons/search.png',
     website: 'https://app.virtuals.io/virtuals/acolyt',
     category: 'm/ai-agents',
     status: 'approved',
@@ -84,9 +90,10 @@ const aiAgents: ProjectSeed[] = [
   },
   {
     name: 'SAM',
+    slug: 'sam',
     address: 'virtual://sam',
     description: 'Social agent for community management and engagement. Automates Discord/Telegram moderation, answers FAQs, and drives community growth through interactive experiences.',
-    image: 'https://img.icons8.com/fluency/96/chat.png',
+    image: '/icons/chat.png',
     website: 'https://app.virtuals.io/virtuals/sam',
     category: 'm/ai-agents',
     status: 'approved',
@@ -95,9 +102,10 @@ const aiAgents: ProjectSeed[] = [
   },
   {
     name: 'BillyBets',
+    slug: 'billybets',
     address: 'virtual://billybets',
     description: 'Prediction and sports betting AI agent. Analyzes odds, historical data, and real-time signals for betting recommendations. Uses on-chain settlement for transparency.',
-    image: 'https://img.icons8.com/fluency/96/dice.png',
+    image: '/icons/dice.png',
     website: 'https://app.virtuals.io/virtuals/billybets',
     category: 'm/ai-agents',
     status: 'approved',
@@ -106,9 +114,10 @@ const aiAgents: ProjectSeed[] = [
   },
   {
     name: 'NeuroBro',
+    slug: 'neurobro',
     address: 'virtual://neurobro',
     description: 'Trading signal agent powered by neural network analysis. Provides entry/exit signals, risk scoring, and market regime detection for crypto traders.',
-    image: 'https://img.icons8.com/fluency/96/brain.png',
+    image: '/icons/brain.png',
     website: 'https://app.virtuals.io/virtuals/neurobro',
     category: 'm/ai-agents',
     status: 'pending',
@@ -117,9 +126,10 @@ const aiAgents: ProjectSeed[] = [
   },
   {
     name: 'MUSIC',
+    slug: 'music',
     address: 'virtual://music',
     description: 'Creative AI agent for music generation and composition. Creates original tracks, remixes, and soundscapes. Monetizes through agent commerce and licensing.',
-    image: 'https://img.icons8.com/fluency/96/music.png',
+    image: '/icons/music.png',
     website: 'https://app.virtuals.io/virtuals/music',
     category: 'm/ai-agents',
     status: 'pending',
@@ -128,9 +138,10 @@ const aiAgents: ProjectSeed[] = [
   },
   {
     name: 'Tracy.AI',
+    slug: 'tracyai',
     address: 'virtual://tracy',
     description: 'General-purpose AI assistant agent on Virtuals. Task execution, scheduling, and workflow automation. Designed for daily productivity with on-chain identity.',
-    image: 'https://img.icons8.com/fluency/96/robot-2.png',
+    image: '/icons/robot-2.png',
     website: 'https://app.virtuals.io/virtuals/tracy',
     category: 'm/ai-agents',
     status: 'pending',
@@ -145,9 +156,10 @@ const aiAgents: ProjectSeed[] = [
 const defiProtocols: ProjectSeed[] = [
   {
     name: 'Uniswap',
+    slug: 'uniswap',
     address: '0x1f9840a85d5af5bf1d1762f925bdaddc4201f984',
     description: 'Leading decentralized exchange on Ethereum. Automated market maker with concentrated liquidity (v3/v4). Audited and battle-tested.',
-    image: 'https://cryptologos.cc/logos/uniswap-uni-logo.png',
+    image: '/icons/uniswap.png',
     website: 'https://uniswap.org',
     category: 'm/defi',
     status: 'approved',
@@ -156,9 +168,10 @@ const defiProtocols: ProjectSeed[] = [
   },
   {
     name: 'Aave',
+    slug: 'aave',
     address: '0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9',
     description: 'Decentralized lending and borrowing protocol. Supports multiple chains and collateral types. Flash loans pioneer.',
-    image: 'https://cryptologos.cc/logos/aave-aave-logo.png',
+    image: '/icons/aave.png',
     website: 'https://aave.com',
     category: 'm/defi',
     status: 'approved',
@@ -167,9 +180,10 @@ const defiProtocols: ProjectSeed[] = [
   },
   {
     name: 'Compound',
+    slug: 'compound',
     address: '0xc00e94cb662c3520282e6f5717214004a7f26888',
     description: 'Algorithmic money market protocol. Supply or borrow assets with algorithmically determined interest rates.',
-    image: 'https://cryptologos.cc/logos/compound-comp-logo.png',
+    image: '/icons/compound.png',
     website: 'https://compound.finance',
     category: 'm/defi',
     status: 'approved',
@@ -178,9 +192,10 @@ const defiProtocols: ProjectSeed[] = [
   },
   {
     name: 'Curve Finance',
+    slug: 'curve-finance',
     address: '0xd533a949740bb3306d119cc777fa900ba034cd52',
     description: 'Stablecoin-optimized DEX. Low slippage for correlated assets. veCRV governance model.',
-    image: 'https://cryptologos.cc/logos/curve-dao-token-crv-logo.png',
+    image: '/icons/curve.png',
     website: 'https://curve.fi',
     category: 'm/defi',
     status: 'approved',
@@ -189,13 +204,56 @@ const defiProtocols: ProjectSeed[] = [
   },
   {
     name: 'PancakeSwap',
+    slug: 'pancakeswap',
     address: '0x0e09fabb73bd3ade0a17ecc321fd13a19e81ce82',
     description: 'Largest DEX on BNB Chain. AMM with farming, lottery, and prediction markets. Low fees, high throughput.',
-    image: 'https://cryptologos.cc/logos/pancakeswap-cake-logo.png',
+    image: '/icons/pancakeswap.png',
     website: 'https://pancakeswap.finance',
     category: 'm/defi',
     status: 'approved',
     avgRating: 4.3,
+    reviewCount: 0,
+  },
+]
+
+// ═══════════════════════════════════════════
+// ☕ COFFEE SHOPS (ETHDenver Demo)
+// ═══════════════════════════════════════════
+const coffeeShops: ProjectSeed[] = [
+  {
+    name: "Jerry's Coffee",
+    slug: 'jerrys-coffee',
+    address: 'base://jerrys-coffee',
+    description: 'Artisan coffee shop accepting crypto payments on Base. Known for premium single-origin espresso and fast service. The first trust-verified merchant on Maiat.',
+    image: '/icons/coffee-to-go.png',
+    website: 'https://jerryscoffee.eth',
+    category: 'm/coffee',
+    status: 'approved',
+    avgRating: 4.2,
+    reviewCount: 0,
+  },
+  {
+    name: 'Blockchain Beans',
+    slug: 'blockchain-beans',
+    address: 'base://blockchain-beans',
+    description: 'Web3-native coffee roasters. Pay with USDC on Base, earn loyalty NFTs. Every bean sourced on-chain with full supply chain transparency.',
+    image: '/icons/cafe.png',
+    website: 'https://blockchainbeans.xyz',
+    category: 'm/coffee',
+    status: 'approved',
+    avgRating: 4.5,
+    reviewCount: 0,
+  },
+  {
+    name: 'CryptoGrind',
+    slug: 'cryptogrind',
+    address: 'base://cryptogrind',
+    description: 'Coffee meets DeFi. Stake your loyalty points for yield while sipping your latte. Denver-based, crypto-first since 2024.',
+    image: '/icons/espresso-cup.png',
+    website: 'https://cryptogrind.co',
+    category: 'm/coffee',
+    status: 'approved',
+    avgRating: 3.8,
     reviewCount: 0,
   },
 ]
@@ -238,6 +296,14 @@ const seedReviews = [
   // Aave reviews
   { project: '0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9', user: 1, rating: 5, content: 'Aave V3 with cross-chain lending is a game changer. The risk management is top-tier — they survived every bear market. Flash loans still the best feature in DeFi.' },
   { project: '0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9', user: 4, rating: 4, content: 'Solid lending protocol. Interest rates are competitive and the governance is active. Only concern is the increasing complexity of risk parameters.' },
+
+  // Jerry's Coffee reviews
+  { project: 'base://jerrys-coffee', user: 0, rating: 4, content: 'Great espresso, fast service. Paid with USDC on Base — transaction confirmed in 2 seconds. The barista even explained how the on-chain receipt works.' },
+  { project: 'base://jerrys-coffee', user: 3, rating: 5, content: 'Best crypto-friendly coffee shop in Denver. Single-origin Ethiopian pour-over was incredible. The whole experience from payment to loyalty rewards is seamless.' },
+  { project: 'base://jerrys-coffee', user: 1, rating: 4, content: 'Solid coffee, cool vibe. The Base payment integration is smooth — no awkward wait times. Would definitely come back during ETHDenver.' },
+
+  // Blockchain Beans review
+  { project: 'base://blockchain-beans', user: 2, rating: 5, content: 'Supply chain transparency is real — I scanned the QR and saw exactly where my beans came from. Coffee quality matches the tech. Loyalty NFT is a nice touch.' },
 ]
 
 async function main() {
@@ -280,6 +346,14 @@ async function main() {
     console.log(`   🟢 ${protocol.name}`)
   }
 
+  // Seed Coffee Shops
+  console.log('\n☕ Seeding Coffee Shops (ETHDenver Demo)...')
+  for (const shop of coffeeShops) {
+    const p = await prisma.project.create({ data: shop })
+    projectMap[shop.address] = p.id
+    console.log(`   ☕ ${shop.name}`)
+  }
+
   // Seed Reviews
   console.log('\n📝 Seeding reviews...')
   let reviewCount = 0
@@ -317,6 +391,7 @@ async function main() {
   console.log(`\n✅ Seed complete!`)
   console.log(`   🤖 ${aiAgents.length} AI Agents`)
   console.log(`   🏦 ${defiProtocols.length} DeFi Protocols`)
+  console.log(`   ☕ ${coffeeShops.length} Coffee Shops`)
   console.log(`   📝 ${reviewCount} Reviews`)
   console.log(`   👤 ${seedUsers.length} Users`)
 }

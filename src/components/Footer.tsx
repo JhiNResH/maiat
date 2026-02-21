@@ -7,8 +7,7 @@ export function Footer() {
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           {/* Left: Branding */}
           <div className="flex items-center gap-2">
-            <img src="/maiat-rmbg.png" alt="MAIAT" className="w-6 h-6 block dark:hidden object-contain" />
-            <img src="/maiat-rmbg.png" alt="MAIAT" className="w-6 h-6 hidden dark:block object-contain" />
+            <img src="/logo-light.png" alt="MAIAT" className="w-6 h-6 object-contain" />
             <span className="text-sm font-bold text-gray-900 dark:text-gray-100 font-mono">MAIAT</span>
             <span className="text-xs text-gray-500 dark:text-gray-400">Trust Layer for Agentic Commerce</span>
           </div>
