@@ -11,6 +11,8 @@
  *   /search <query> - Search projects
  *   /myscarab       - Check Scarab balance
  *   /help           - Show commands
+ *   /demo_purchase  - (hidden) Simulate payment detection for live demo
+ *   /ask <question> - Natural language query ("best coffee?")
  */
 
 import { Bot, Context, session, SessionFlavor, InlineKeyboard } from 'grammy'
@@ -414,13 +416,291 @@ bot.command('help', async (ctx) => {
   )
 })
 
-// Error handler
+// ==========================================
+// /demo_purchase - Hidden demo trigger
+// Simulates "payment detected" for live demos
+// ==========================================
+bot.command('demo_purchase', async (ctx) => {
+  const merchantName = ctx.match?.trim() || "Jerry's Coffee"
+
+  // Delete the command so audience doesn't see it
+  try { await ctx.deleteMessage() } catch {}
+
+  // Find or create a demo project
+  let project = await prisma.project.findFirst({
+    where: { name: { contains: merchantName, mode: 'insensitive' } }
+  })
+
+  if (!project) {
+    project = await prisma.project.create({
+      data: {
+        name: merchantName,
+        slug: merchantName.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+        address: `0xdemo${Date.now().toString(16)}`,
+        category: 'm/defi',
+        description: `${merchantName} — verified merchant on Base`,
+        avgRating: 0,
+        reviewCount: 0,
+      }
+    })
+  }
+
+  // Set session to awaiting review for this project
+  ctx.session.step = 'awaiting_rating'
+  ctx.session.projectId = project.id
+  ctx.session.projectName = project.name
+
+  const keyboard = new InlineKeyboard()
+    .text('⭐ 1', 'rate_1')
+    .text('⭐ 2', 'rate_2')
+    .text('⭐ 3', 'rate_3')
+    .text('⭐ 4', 'rate_4')
+    .text('⭐ 5', 'rate_5')
+
+  await ctx.reply(
+    `☕ *Payment detected on Base!*\n\n` +
+    `Looks like you just visited *${project.name}*.\n` +
+    `How was your experience? Rate it below, then send a voice message or text review.\n\n` +
+    `_Tx: 0x${Buffer.from(Date.now().toString()).toString('hex').slice(0, 12)}...on Base_`,
+    { parse_mode: 'Markdown', reply_markup: keyboard }
+  )
+})
+
+// ==========================================
+// /ask <question> - Natural language query
+// "Where's the best coffee?" / "What's trustworthy?"
+// ==========================================
+bot.command('ask', async (ctx) => {
+  const question = ctx.match?.trim()
+  if (!question) {
+    await ctx.reply('Usage: /ask <question>\n\nExample: /ask best coffee nearby')
+    return
+  }
+
+  await ctx.reply('🔍 Searching Maiat trust database...')
+
+  // Get all projects with reviews
+  const projects = await prisma.project.findMany({
+    where: { reviewCount: { gt: 0 } },
+    include: {
+      reviews: {
+        orderBy: { createdAt: 'desc' },
+        take: 3,
+        include: { reviewer: { select: { displayName: true } } }
+      }
+    },
+    orderBy: { avgRating: 'desc' },
+    take: 20,
+  })
+
+  if (projects.length === 0) {
+    await ctx.reply('No reviewed projects yet. Be the first to /review something!')
+    return
+  }
+
+  // Use Gemini to answer the question based on trust data
+  try {
+    const { GoogleGenerativeAI } = await import('@google/generative-ai')
+    const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY!)
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
+
+    const projectData = projects.map(p => {
+      const reviews = p.reviews.map(r =>
+        `${r.rating}/5 by ${r.reviewer.displayName || 'Anon'}: "${r.content}"`
+      ).join('\n    ')
+      return `- ${p.name} (Trust: ${Math.round(p.avgRating * 20)}/100, ${p.reviewCount} reviews)\n    ${reviews}`
+    }).join('\n')
+
+    const prompt = `You are Maiat, a crypto trust score assistant. Answer the user's question based ONLY on the trust data below. Be helpful, specific, and mention actual review quotes when relevant. Keep it concise (3-5 sentences max).
+
+User's question: "${question}"
+
+Trust Database:
+${projectData}
+
+If the question doesn't match any data, say so honestly. Always mention trust scores and recent reviewers by name.`
+
+    const result = await model.generateContent(prompt)
+    const answer = result.response.text()
+
+    let msg = `🪲 *Maiat Trust Answer*\n\n${answer}\n\n`
+    msg += `_Based on ${projects.reduce((s, p) => s + p.reviewCount, 0)} verified reviews across ${projects.length} projects_`
+
+    await ctx.reply(msg, { parse_mode: 'Markdown' })
+  } catch (e) {
+    // Fallback: just show top rated
+    let msg = `🪲 *Top Trusted Projects:*\n\n`
+    for (const p of projects.slice(0, 5)) {
+      const score = Math.round(p.avgRating * 20)
+      const emoji = score >= 80 ? '🟢' : score >= 50 ? '🟡' : '🔴'
+      msg += `${emoji} *${p.name}* — ${score}/100 (${p.reviewCount} reviews)\n`
+    }
+    await ctx.reply(msg, { parse_mode: 'Markdown' })
+  }
+})
+
+// ==========================================
+// Voice message handler — convert to review
+// ==========================================
+bot.on('message:voice', async (ctx) => {
+  // Only process voice if we're awaiting a review
+  if (ctx.session.step !== 'awaiting_review') {
+    await ctx.reply('🎤 Send a YouTube link or use /review to start reviewing!')
+    return
+  }
+
+  if (!ctx.session.projectId || !ctx.session.rating) return
+
+  // Telegram provides voice transcription in newer clients
+  // @ts-ignore — transcript may not be in grammy types yet
+  const transcript = ctx.message.voice?.transcript
+
+  if (transcript) {
+    // Process the transcription as a text review
+    await ctx.reply(`🎤 Got it! Processing: _"${transcript}"_`, { parse_mode: 'Markdown' })
+
+    // Reuse the text review logic by faking a text message context
+    // We'll just call the review submission directly
+    const content = transcript
+    const telegramId = ctx.from?.id?.toString()
+    if (!telegramId) return
+
+    try {
+      const analysis = await analyzeReview(
+        ctx.session.projectName || 'Unknown',
+        ctx.session.rating,
+        content
+      )
+
+      if (analysis.quality === 'spam' || analysis.score < 20) {
+        ctx.session.step = 'idle'
+        await ctx.reply(`❌ Review rejected: ${analysis.reason}`)
+        return
+      }
+
+      const address = `tg:${telegramId}`
+      let user = await prisma.user.findUnique({ where: { address } })
+      if (!user) {
+        const displayName = ctx.from?.first_name || ctx.from?.username || `User ${telegramId.slice(-4)}`
+        user = await prisma.user.create({ data: { address, displayName } })
+      }
+
+      const review = await prisma.review.create({
+        data: {
+          rating: ctx.session.rating,
+          content,
+          status: 'active',
+          reviewerId: user.id,
+          projectId: ctx.session.projectId,
+        }
+      })
+
+      const reviews = await prisma.review.findMany({ where: { projectId: ctx.session.projectId } })
+      const avg = reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+      await prisma.project.update({
+        where: { id: ctx.session.projectId },
+        data: { avgRating: Math.round(avg * 10) / 10, reviewCount: reviews.length }
+      })
+
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { totalReviews: { increment: 1 }, reputationScore: { increment: 10 } }
+      })
+
+      await prisma.scarabBalance.upsert({
+        where: { address },
+        create: { address, balance: 5, totalEarned: 5 },
+        update: { balance: { increment: 5 }, totalEarned: { increment: 5 } },
+      })
+
+      const projectName = ctx.session.projectName || 'Project'
+      ctx.session.step = 'idle'
+      ctx.session.projectId = undefined
+      ctx.session.projectName = undefined
+      ctx.session.rating = undefined
+
+      const qualityEmoji = analysis.quality === 'high' ? '🟢' : analysis.quality === 'medium' ? '🟡' : '🔴'
+      await ctx.reply(
+        `✅ *Voice review submitted!*\n\n` +
+        `Project: ${projectName}\nRating: ${'⭐'.repeat(review.rating)}\n` +
+        `Review: "${content}"\nQuality: ${qualityEmoji} ${analysis.score}/100\n\n` +
+        `🪲 +5 Scarab earned!\n\n_${analysis.reason}_`,
+        { parse_mode: 'Markdown' }
+      )
+    } catch (error) {
+      console.error('Voice review error:', error)
+      await ctx.reply('❌ Failed to process voice review. Try typing it instead.')
+      ctx.session.step = 'idle'
+    }
+  } else {
+    await ctx.reply(
+      '🎤 Voice message received! Unfortunately I couldn\'t transcribe it.\n\n' +
+      'Please type your review instead, or try sending the voice message again.'
+    )
+  }
+})
+
+// Also handle natural language in free text (when not in review flow)
 // Handle review text (free text when in awaiting_review state)
 bot.on('message:text', async (ctx) => {
   // Skip commands
   if (ctx.message.text.startsWith('/')) return
-  // Only process if we're awaiting a review
-  if (ctx.session.step !== 'awaiting_review') return
+  
+  // If not in review flow, check for natural language questions
+  if (ctx.session.step !== 'awaiting_review') {
+    const text = ctx.message.text.toLowerCase()
+    const isQuestion = text.includes('?') || text.includes('best') || text.includes('where') || 
+      text.includes('recommend') || text.includes('trust') || text.includes('should i') ||
+      text.includes('what\'s good') || text.includes('whats good')
+    
+    if (isQuestion && text.length > 5) {
+      // Treat as natural language query — same as /ask
+      ctx.match = ctx.message.text
+      // @ts-ignore - reuse ask handler
+      await bot.api.raw.sendMessage({ chat_id: ctx.chat.id, text: '🔍 Let me check the trust database...' })
+      
+      const projects = await prisma.project.findMany({
+        where: { reviewCount: { gt: 0 } },
+        include: {
+          reviews: { orderBy: { createdAt: 'desc' }, take: 3, include: { reviewer: { select: { displayName: true } } } }
+        },
+        orderBy: { avgRating: 'desc' },
+        take: 20,
+      })
+
+      if (projects.length === 0) {
+        await ctx.reply('No reviewed projects yet!')
+        return
+      }
+
+      try {
+        const { GoogleGenerativeAI } = await import('@google/generative-ai')
+        const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY!)
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
+
+        const projectData = projects.map(p => {
+          const reviews = p.reviews.map(r => `${r.rating}/5 by ${r.reviewer.displayName || 'Anon'}: "${r.content}"`).join('\n    ')
+          return `- ${p.name} (Trust: ${Math.round(p.avgRating * 20)}/100, ${p.reviewCount} reviews)\n    ${reviews}`
+        }).join('\n')
+
+        const result = await model.generateContent(
+          `You are Maiat, a crypto trust assistant. Answer based ONLY on the data below. Be concise (3-5 sentences). Mention trust scores and reviewer names.\n\nQuestion: "${ctx.message.text}"\n\nTrust Database:\n${projectData}`
+        )
+        
+        await ctx.reply(`🪲 *Maiat Trust Answer*\n\n${result.response.text()}`, { parse_mode: 'Markdown' })
+      } catch {
+        let msg = `🪲 *Top Trusted:*\n\n`
+        for (const p of projects.slice(0, 5)) {
+          const score = Math.round(p.avgRating * 20)
+          const emoji = score >= 80 ? '🟢' : score >= 50 ? '🟡' : '🔴'
+          msg += `${emoji} *${p.name}* — ${score}/100\n`
+        }
+        await ctx.reply(msg, { parse_mode: 'Markdown' })
+      }
+      return
+    }
+    return
+  }
   if (!ctx.session.projectId || !ctx.session.rating) return
 
   const content = ctx.message.text
