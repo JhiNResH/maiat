@@ -33,6 +33,27 @@ type BotContext = Context & SessionFlavor<SessionData>
 const bot = new Bot<BotContext>(process.env.TELEGRAM_BOT_TOKEN!)
 const prisma = new PrismaClient()
 
+// ==========================================
+// Keyword extraction — strips stopwords so
+// "What's the best coffee?" → ["coffee"]
+// ==========================================
+const STOPWORDS = new Set([
+  'what', "what's", 'whats', 'the', 'best', 'a', 'an', 'is', 'are', 'in',
+  'where', 'which', 'who', 'how', 'why', 'can', 'you', 'i', 'me', 'my',
+  'for', 'to', 'of', 'do', 'and', 'or', 'not', 'good', 'great', 'top',
+  'recommend', 'recommended', 'safe', 'should', 'would', 'could', 'trust',
+  'trusted', 'trustworthy', 'nearby', 'near', 'around', 'please', 'hey',
+  'tell', 'show', 'find', 'get', 'give', 'any', 'some', 'there', 'here',
+])
+
+function extractKeywords(text: string): string[] {
+  return text
+    .toLowerCase()
+    .split(/\s+/)
+    .map(w => w.replace(/[^a-z0-9]/g, ''))
+    .filter(w => w.length >= 2 && !STOPWORDS.has(w))
+}
+
 // Session middleware
 bot.use(session({
   initial: (): SessionData => ({ step: 'idle' }),
@@ -498,14 +519,16 @@ bot.command('ask', async (ctx) => {
     return
   }
 
-  // Try to match question keywords to projects
-  const keywords = question.toLowerCase().split(/\s+/)
-  const matched = projects.filter(p => {
-    const name = p.name.toLowerCase()
-    const desc = (p.description || '').toLowerCase()
-    const cat = (p.category || '').toLowerCase()
-    return keywords.some(k => name.includes(k) || desc.includes(k) || cat.includes(k))
-  })
+  // Extract meaningful keywords (strips stopwords)
+  const keywords = extractKeywords(question)
+  const matched = keywords.length > 0
+    ? projects.filter(p => {
+        const name = p.name.toLowerCase()
+        const cat = (p.category || '').toLowerCase()
+        // Only match on name/category — description matching causes false positives
+        return keywords.some(k => name.includes(k) || cat.includes(k))
+      })
+    : []
 
   // Use matched projects if any, otherwise top rated
   const relevant = matched.length > 0 ? matched : projects.slice(0, 5)
@@ -708,12 +731,14 @@ bot.on('message:voice', async (ctx) => {
       take: 20,
     })
 
-    const keywords = text.split(/\s+/)
-    const matched = projects.filter(p => {
-      const name = p.name.toLowerCase()
-      const desc = (p.description || '').toLowerCase()
-      return keywords.some(k => name.includes(k) || desc.includes(k))
-    })
+    const keywords = extractKeywords(text)
+    const matched = keywords.length > 0
+      ? projects.filter(p => {
+          const name = p.name.toLowerCase()
+          const cat = (p.category || '').toLowerCase()
+          return keywords.some(k => name.includes(k) || cat.includes(k))
+        })
+      : []
     const relevant = matched.length > 0 ? matched : projects.slice(0, 5)
 
     let msg = `🪲 *Here's what I found:*\n\n`
@@ -771,13 +796,15 @@ bot.on('message:text', async (ctx) => {
         return
       }
 
-      // Match keywords to projects
-      const qKeywords = ctx.message.text.toLowerCase().split(/\s+/)
-      const matched = projects.filter(p => {
-        const name = p.name.toLowerCase()
-        const desc = (p.description || '').toLowerCase()
-        return qKeywords.some(k => name.includes(k) || desc.includes(k))
-      })
+      // Extract meaningful keywords and match on name/category only
+      const qKeywords = extractKeywords(ctx.message.text)
+      const matched = qKeywords.length > 0
+        ? projects.filter(p => {
+            const name = p.name.toLowerCase()
+            const cat = (p.category || '').toLowerCase()
+            return qKeywords.some(k => name.includes(k) || cat.includes(k))
+          })
+        : []
       const relevant = matched.length > 0 ? matched : projects.slice(0, 5)
 
       let msg = `🪲 *Here's what I found:*\n\n`
