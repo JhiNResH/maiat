@@ -198,6 +198,42 @@ const defiProtocols: ProjectSeed[] = [
     avgRating: 4.3,
     reviewCount: 0,
   },
+  // ═══════════════════════════════════════════
+  // 🍔 MERCHANTS
+  // ═══════════════════════════════════════════
+  {
+    name: 'Chipotle',
+    address: 'merchant://chipotle',
+    description: 'Fast-casual Mexican restaurant chain. 3,500+ locations worldwide. Known for customizable burritos, bowls, and commitment to real ingredients.',
+    image: 'https://upload.wikimedia.org/wikipedia/en/thumb/3/3b/Chipotle_Mexican_Grill_logo.svg/1200px-Chipotle_Mexican_Grill_logo.svg.png',
+    website: 'https://chipotle.com',
+    category: 'm/merchants',
+    status: 'approved',
+    avgRating: 4.2,
+    reviewCount: 0,
+  },
+  {
+    name: 'Whole Foods',
+    address: 'merchant://whole-foods',
+    description: 'Premium organic grocery chain owned by Amazon. Accepts various payment methods including crypto via select partners.',
+    image: 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f3/Whole_Foods_Market_logo.svg/1200px-Whole_Foods_Market_logo.svg.png',
+    website: 'https://wholefoodsmarket.com',
+    category: 'm/merchants',
+    status: 'approved',
+    avgRating: 4.0,
+    reviewCount: 0,
+  },
+  {
+    name: 'Starbucks',
+    address: 'merchant://starbucks',
+    description: 'Global coffee chain. 35,000+ locations. Pioneered mobile payments and loyalty programs in food service.',
+    image: 'https://upload.wikimedia.org/wikipedia/en/thumb/d/d3/Starbucks_Corporation_Logo_2011.svg/1200px-Starbucks_Corporation_Logo_2011.svg.png',
+    website: 'https://starbucks.com',
+    category: 'm/merchants',
+    status: 'approved',
+    avgRating: 3.9,
+    reviewCount: 0,
+  },
 ]
 
 // ═══════════════════════════════════════════
@@ -238,6 +274,19 @@ const seedReviews = [
   // Aave reviews
   { project: '0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9', user: 1, rating: 5, content: 'Aave V3 with cross-chain lending is a game changer. The risk management is top-tier — they survived every bear market. Flash loans still the best feature in DeFi.' },
   { project: '0x7fc66500c84a76ad7e9c93437bfc5ac33e2ddae9', user: 4, rating: 4, content: 'Solid lending protocol. Interest rates are competitive and the governance is active. Only concern is the increasing complexity of risk parameters.' },
+
+  // Chipotle reviews
+  { project: 'merchant://chipotle', user: 0, rating: 5, content: 'Best fast-casual burrito hands down. The portion sizes are generous, ingredients taste fresh, and you can customize everything. My go-to lunch spot near ETHDenver.' },
+  { project: 'merchant://chipotle', user: 3, rating: 4, content: 'Consistent quality across locations. The app ordering is smooth and the rewards program is actually worth it. Only downside is the guac upcharge.' },
+  { project: 'merchant://chipotle', user: 1, rating: 4, content: 'Solid food, fair prices. Would love to see them accept crypto payments natively. The double chicken bowl is unbeatable for protein-to-dollar ratio.' },
+
+  // Whole Foods reviews
+  { project: 'merchant://whole-foods', user: 4, rating: 4, content: 'Great selection of organic and specialty items. Amazon Prime discounts make it more affordable. The prepared food section is perfect for quick healthy meals.' },
+  { project: 'merchant://whole-foods', user: 2, rating: 3, content: 'Quality is top tier but prices are still "Whole Paycheck" level even with Prime. Good for specialty items, not for weekly grocery runs unless you have the budget.' },
+
+  // Starbucks reviews
+  { project: 'merchant://starbucks', user: 1, rating: 4, content: 'The mobile ordering + rewards ecosystem is the gold standard of merchant loyalty programs. Consistent quality worldwide. Their Odyssey NFT program showed they understand web3.' },
+  { project: 'merchant://starbucks', user: 3, rating: 4, content: 'Reliable coffee, great app UX. The rewards program keeps me coming back. Would be amazing if they integrated crypto payments through their existing app infrastructure.' },
 ]
 
 async function main() {
