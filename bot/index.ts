@@ -498,69 +498,126 @@ bot.command('ask', async (ctx) => {
     return
   }
 
-  // Use Gemini to answer the question based on trust data
+  // Try to match question keywords to projects
+  const keywords = question.toLowerCase().split(/\s+/)
+  const matched = projects.filter(p => {
+    const name = p.name.toLowerCase()
+    const desc = (p.description || '').toLowerCase()
+    const cat = (p.category || '').toLowerCase()
+    return keywords.some(k => name.includes(k) || desc.includes(k) || cat.includes(k))
+  })
+
+  // Use matched projects if any, otherwise top rated
+  const relevant = matched.length > 0 ? matched : projects.slice(0, 5)
+
+  // Try Gemini for a nice answer, fall back to structured response
+  let aiAnswer: string | null = null
   try {
     const { GoogleGenerativeAI } = await import('@google/generative-ai')
     const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY!)
     const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
 
-    const projectData = projects.map(p => {
+    const projectData = relevant.map(p => {
       const reviews = p.reviews.map(r =>
         `${r.rating}/5 by ${r.reviewer.displayName || 'Anon'}: "${r.content}"`
       ).join('\n    ')
       return `- ${p.name} (Trust: ${Math.round(p.avgRating * 20)}/100, ${p.reviewCount} reviews)\n    ${reviews}`
     }).join('\n')
 
-    const prompt = `You are Maiat, a crypto trust score assistant. Answer the user's question based ONLY on the trust data below. Be helpful, specific, and mention actual review quotes when relevant. Keep it concise (3-5 sentences max).
-
-User's question: "${question}"
-
-Trust Database:
-${projectData}
-
-If the question doesn't match any data, say so honestly. Always mention trust scores and recent reviewers by name.`
-
-    const result = await model.generateContent(prompt)
-    const answer = result.response.text()
-
-    let msg = `🪲 *Maiat Trust Answer*\n\n${answer}\n\n`
-    msg += `_Based on ${projects.reduce((s, p) => s + p.reviewCount, 0)} verified reviews across ${projects.length} projects_`
-
-    await ctx.reply(msg, { parse_mode: 'Markdown' })
+    const result = await model.generateContent(
+      `You are Maiat, a trust score assistant. Answer based ONLY on the data below. Be concise (3-5 sentences). Mention trust scores and reviewer names.\n\nQuestion: "${question}"\n\nTrust Database:\n${projectData}`
+    )
+    aiAnswer = result.response.text()
   } catch (e) {
-    // Fallback: just show top rated
-    let msg = `🪲 *Top Trusted Projects:*\n\n`
-    for (const p of projects.slice(0, 5)) {
+    // Gemini unavailable — use structured fallback
+  }
+
+  if (aiAnswer) {
+    let msg = `🪲 *Maiat Trust Answer*\n\n${aiAnswer}\n\n`
+    msg += `_Based on ${relevant.reduce((s, p) => s + p.reviewCount, 0)} verified reviews_`
+    await ctx.reply(msg, { parse_mode: 'Markdown' })
+  } else {
+    // Structured fallback — still useful
+    let msg = `🪲 *Here's what I found:*\n\n`
+    for (const p of relevant.slice(0, 5)) {
       const score = Math.round(p.avgRating * 20)
       const emoji = score >= 80 ? '🟢' : score >= 50 ? '🟡' : '🔴'
       msg += `${emoji} *${p.name}* — ${score}/100 (${p.reviewCount} reviews)\n`
+      if (p.reviews.length > 0) {
+        const latest = p.reviews[0]
+        const author = latest.reviewer.displayName || 'Anon'
+        const text = latest.content.length > 80 ? latest.content.slice(0, 77) + '...' : latest.content
+        msg += `   _"${text}" — ${author}_\n\n`
+      }
+    }
+    if (matched.length === 0) {
+      msg += `\n_No exact match for "${question}". Showing top trusted projects._`
     }
     await ctx.reply(msg, { parse_mode: 'Markdown' })
   }
 })
 
 // ==========================================
-// Voice message handler — convert to review
+// Voice message handler — convert to review or query
+// Downloads audio from Telegram, transcribes via Gemini or fallback
 // ==========================================
+
+async function transcribeVoice(ctx: BotContext): Promise<string | null> {
+  try {
+    const file = await ctx.getFile()
+    const url = `https://api.telegram.org/file/bot${process.env.TELEGRAM_BOT_TOKEN}/${file.file_path}`
+    
+    // Download the audio file
+    const response = await fetch(url)
+    const buffer = Buffer.from(await response.arrayBuffer())
+    const base64Audio = buffer.toString('base64')
+    
+    // Try Gemini multimodal (audio → text)
+    try {
+      const { GoogleGenerativeAI } = await import('@google/generative-ai')
+      const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY!)
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
+      
+      const result = await model.generateContent([
+        { text: 'Transcribe this audio message exactly. Return ONLY the transcription, nothing else.' },
+        { inlineData: { mimeType: 'audio/ogg', data: base64Audio } }
+      ])
+      
+      const transcript = result.response.text().trim()
+      if (transcript && transcript.length > 2) return transcript
+    } catch (e) {
+      console.log('Gemini transcription failed, checking Telegram transcript')
+    }
+
+    // Fallback: Telegram's built-in transcription (premium users)
+    // @ts-ignore
+    const tgTranscript = ctx.message?.voice?.transcript
+    if (tgTranscript) return tgTranscript
+
+    return null
+  } catch (e) {
+    console.error('Voice download failed:', e)
+    return null
+  }
+}
+
 bot.on('message:voice', async (ctx) => {
-  // Only process voice if we're awaiting a review
-  if (ctx.session.step !== 'awaiting_review') {
-    await ctx.reply('🎤 Send a YouTube link or use /review to start reviewing!')
+  await ctx.reply('🎤 Processing voice message...')
+  
+  const transcript = await transcribeVoice(ctx)
+  
+  if (!transcript) {
+    await ctx.reply(
+      '🎤 Couldn\'t transcribe the voice message.\n\n' +
+      'Please type your message instead — I\'ll process it the same way!'
+    )
     return
   }
 
-  if (!ctx.session.projectId || !ctx.session.rating) return
+  await ctx.reply(`🎤 _"${transcript}"_`, { parse_mode: 'Markdown' })
 
-  // Telegram provides voice transcription in newer clients
-  // @ts-ignore — transcript may not be in grammy types yet
-  const transcript = ctx.message.voice?.transcript
-
-  if (transcript) {
-    // Process the transcription as a text review
-    await ctx.reply(`🎤 Got it! Processing: _"${transcript}"_`, { parse_mode: 'Markdown' })
-
-    // Reuse the text review logic by faking a text message context
-    // We'll just call the review submission directly
+  // If in review flow, process as review
+  if (ctx.session.step === 'awaiting_review' && ctx.session.projectId && ctx.session.rating) {
     const content = transcript
     const telegramId = ctx.from?.id?.toString()
     if (!telegramId) return
@@ -632,10 +689,51 @@ bot.on('message:voice', async (ctx) => {
       await ctx.reply('❌ Failed to process voice review. Try typing it instead.')
       ctx.session.step = 'idle'
     }
+    return
+  }
+
+  // If NOT in review flow, treat voice as a natural language query
+  const text = transcript.toLowerCase()
+  const isQuestion = text.includes('?') || text.includes('best') || text.includes('where') ||
+    text.includes('recommend') || text.includes('trust') || text.includes('should')
+
+  if (isQuestion) {
+    // Search projects by keywords
+    const projects = await prisma.project.findMany({
+      where: { reviewCount: { gt: 0 } },
+      include: {
+        reviews: { orderBy: { createdAt: 'desc' }, take: 3, include: { reviewer: { select: { displayName: true } } } }
+      },
+      orderBy: { avgRating: 'desc' },
+      take: 20,
+    })
+
+    const keywords = text.split(/\s+/)
+    const matched = projects.filter(p => {
+      const name = p.name.toLowerCase()
+      const desc = (p.description || '').toLowerCase()
+      return keywords.some(k => name.includes(k) || desc.includes(k))
+    })
+    const relevant = matched.length > 0 ? matched : projects.slice(0, 5)
+
+    let msg = `🪲 *Here's what I found:*\n\n`
+    for (const p of relevant.slice(0, 5)) {
+      const score = Math.round(p.avgRating * 20)
+      const emoji = score >= 80 ? '🟢' : score >= 50 ? '🟡' : '🔴'
+      msg += `${emoji} *${p.name}* — ${score}/100 (${p.reviewCount} reviews)\n`
+      if (p.reviews.length > 0) {
+        const latest = p.reviews[0]
+        const author = latest.reviewer.displayName || 'Anon'
+        const reviewText = latest.content.length > 80 ? latest.content.slice(0, 77) + '...' : latest.content
+        msg += `   _"${reviewText}" — ${author}_\n\n`
+      }
+    }
+    await ctx.reply(msg, { parse_mode: 'Markdown' })
   } else {
     await ctx.reply(
-      '🎤 Voice message received! Unfortunately I couldn\'t transcribe it.\n\n' +
-      'Please type your review instead, or try sending the voice message again.'
+      `I heard: _"${transcript}"_\n\n` +
+      `Try asking a question like "What's the best coffee?" or start a review with /review`,
+      { parse_mode: 'Markdown' }
     )
   }
 })
@@ -673,30 +771,28 @@ bot.on('message:text', async (ctx) => {
         return
       }
 
-      try {
-        const { GoogleGenerativeAI } = await import('@google/generative-ai')
-        const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY!)
-        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
+      // Match keywords to projects
+      const qKeywords = ctx.message.text.toLowerCase().split(/\s+/)
+      const matched = projects.filter(p => {
+        const name = p.name.toLowerCase()
+        const desc = (p.description || '').toLowerCase()
+        return qKeywords.some(k => name.includes(k) || desc.includes(k))
+      })
+      const relevant = matched.length > 0 ? matched : projects.slice(0, 5)
 
-        const projectData = projects.map(p => {
-          const reviews = p.reviews.map(r => `${r.rating}/5 by ${r.reviewer.displayName || 'Anon'}: "${r.content}"`).join('\n    ')
-          return `- ${p.name} (Trust: ${Math.round(p.avgRating * 20)}/100, ${p.reviewCount} reviews)\n    ${reviews}`
-        }).join('\n')
-
-        const result = await model.generateContent(
-          `You are Maiat, a crypto trust assistant. Answer based ONLY on the data below. Be concise (3-5 sentences). Mention trust scores and reviewer names.\n\nQuestion: "${ctx.message.text}"\n\nTrust Database:\n${projectData}`
-        )
-        
-        await ctx.reply(`🪲 *Maiat Trust Answer*\n\n${result.response.text()}`, { parse_mode: 'Markdown' })
-      } catch {
-        let msg = `🪲 *Top Trusted:*\n\n`
-        for (const p of projects.slice(0, 5)) {
-          const score = Math.round(p.avgRating * 20)
-          const emoji = score >= 80 ? '🟢' : score >= 50 ? '🟡' : '🔴'
-          msg += `${emoji} *${p.name}* — ${score}/100\n`
+      let msg = `🪲 *Here's what I found:*\n\n`
+      for (const p of relevant.slice(0, 5)) {
+        const score = Math.round(p.avgRating * 20)
+        const emoji = score >= 80 ? '🟢' : score >= 50 ? '🟡' : '🔴'
+        msg += `${emoji} *${p.name}* — ${score}/100 (${p.reviewCount} reviews)\n`
+        if (p.reviews.length > 0) {
+          const latest = p.reviews[0]
+          const author = latest.reviewer.displayName || 'Anon'
+          const reviewText = latest.content.length > 80 ? latest.content.slice(0, 77) + '...' : latest.content
+          msg += `   _"${reviewText}" — ${author}_\n\n`
         }
-        await ctx.reply(msg, { parse_mode: 'Markdown' })
       }
+      await ctx.reply(msg, { parse_mode: 'Markdown' })
       return
     }
     return
