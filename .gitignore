@@ -3,7 +3,8 @@ node_modules
 out
 cache
 .env
-.env.local
+.env.*
+!.env.example
 .vercel
 virtuals-acp/
 contracts/lib/
