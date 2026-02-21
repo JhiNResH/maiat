@@ -14,7 +14,7 @@ const CATEGORIES = [
   { key: 'all', label: 'All' },
   { key: 'ai-agents', label: 'AI Agents', dbValue: 'm/ai-agents' },
   { key: 'defi', label: 'DeFi', dbValue: 'm/defi' },
-  { key: 'gourmet', label: 'Gourmet', dbValue: 'm/gourmet' },
+  { key: 'coffee', label: 'Coffee', dbValue: 'm/coffee' },
 ]
 
 export default async function HomePage({ searchParams }: { searchParams: Promise<{ q?: string; cat?: string; view?: string }> }) {
@@ -161,7 +161,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
                 const barColor = trustScore >= 80 ? 'bg-green-500' : trustScore >= 50 ? 'bg-yellow-500' : 'bg-red-500'
                 const riskLevel = trustScore >= 80 ? 'Low' : trustScore >= 50 ? 'Medium' : 'High'
                 const riskColor = trustScore >= 80 ? 'text-green-600' : trustScore >= 50 ? 'text-yellow-600' : 'text-red-600'
-                const categoryLabel = project.category === 'm/ai-agents' ? 'AI Agent' : project.category === 'm/gourmet' ? 'Gourmet' : 'DeFi'
+                const categoryLabel = project.category === 'm/ai-agents' ? 'AI Agent' : project.category === 'm/coffee' ? 'Coffee' : 'DeFi'
 
                 return (
                   <tr key={project.id} className="border-b border-gray-50 dark:border-gray-800 hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-colors">
@@ -206,7 +206,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
               const scoreColor = trustScore >= 80 ? 'text-green-600' : trustScore >= 50 ? 'text-yellow-600' : 'text-red-600'
               const riskLevel = trustScore >= 80 ? 'Low' : trustScore >= 50 ? 'Medium' : 'High'
               const riskColor = trustScore >= 80 ? 'text-green-600' : trustScore >= 50 ? 'text-yellow-600' : 'text-red-600'
-              const categoryLabel = project.category === 'm/ai-agents' ? 'AI Agent' : project.category === 'm/gourmet' ? 'Gourmet' : 'DeFi'
+              const categoryLabel = project.category === 'm/ai-agents' ? 'AI Agent' : project.category === 'm/coffee' ? 'Coffee' : 'DeFi'
 
               return (
                 <Link

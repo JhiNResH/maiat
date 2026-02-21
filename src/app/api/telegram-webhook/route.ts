@@ -169,12 +169,11 @@ async function sendHelp(chatId: number) {
 
 async function handleRecommend(chatId: number, query: string) {
   // Determine category from query
-  let category = 'm/gourmet'
+  let category = 'm/coffee'
   if (query.toLowerCase().includes('defi') || query.toLowerCase().includes('protocol')) category = 'm/defi'
   if (query.toLowerCase().includes('agent') || query.toLowerCase().includes('ai')) category = 'm/ai-agents'
-  if (query.toLowerCase().includes('food') || query.toLowerCase().includes('restaurant') || query.toLowerCase().includes('burrito') || query.toLowerCase().includes('chipotle') || query.toLowerCase().includes('eat') || query.toLowerCase().includes('吃')) category = 'm/gourmet'
 
-  const categoryLabel = category === 'm/gourmet' ? '🍽️ Gourmet' : category === 'm/defi' ? '🏦 DeFi' : '🤖 AI Agents'
+  const categoryLabel = category === 'm/coffee' ? '☕ Coffee' : category === 'm/defi' ? '🏦 DeFi' : '🤖 AI Agents'
 
   const projects = await prisma.project.findMany({
     where: { category, status: 'approved' },
@@ -232,7 +231,7 @@ async function showProjectsForReview(chatId: number) {
   })
 
   const buttons = projects.map(p => {
-    const emoji = p.category === 'm/gourmet' ? '🍽️' : p.category === 'm/defi' ? '🏦' : '🤖'
+    const emoji = p.category === 'm/coffee' ? '☕' : p.category === 'm/defi' ? '🏦' : '🤖'
     return [{ text: `${emoji} ${p.name}`, callback_data: `review_${p.slug}` }]
   })
 
@@ -372,7 +371,7 @@ async function handleReviewFlow(chatId: number, userId: number, text: string, us
         title: state.projectName || 'Review',
         content: text,
         rating: state.rating,
-        category: 'm/gourmet',
+        category: 'm/coffee',
       })
       
       qualityScore = result.score
@@ -866,7 +865,7 @@ async function handleSearch(chatId: number, text: string) {
   let msg = `🔎 <b>Search: "${query}"</b> — ${projects.length} result${projects.length > 1 ? 's' : ''}\n\n`
   projects.forEach((p, i) => {
     const score = getSimpleTrustScore(p.name, p.category, p.avgRating, p.reviewCount)
-    const emoji = p.category === 'm/gourmet' ? '🍽️' : p.category === 'm/defi' ? '🏦' : '🤖'
+    const emoji = p.category === 'm/coffee' ? '☕' : p.category === 'm/defi' ? '🏦' : '🤖'
     msg += `${i + 1}. ${emoji} <b>${p.name}</b> — Trust: ${score}/100 · ${p.reviewCount} reviews\n`
   })
 
@@ -882,8 +881,6 @@ async function handleNaturalLanguage(chatId: number, userId: number, text: strin
   const lower = text.toLowerCase()
   if (lower.includes('coffee') || lower.includes('咖啡') || lower.includes('cafe') || lower.includes('brew')) {
     await handleRecommend(chatId, 'coffee')
-  } else if (lower.includes('food') || lower.includes('restaurant') || lower.includes('burrito') || lower.includes('chipotle') || lower.includes('eat') || lower.includes('吃') || lower.includes('lunch') || lower.includes('dinner')) {
-    await handleRecommend(chatId, 'food restaurant')
   } else if (lower.includes('defi') || lower.includes('protocol') || lower.includes('swap') || lower.includes('yield')) {
     await handleRecommend(chatId, 'defi protocol')
   } else if (lower.includes('agent') || lower.includes('ai') || lower.includes('bot')) {
