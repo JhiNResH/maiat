@@ -5,6 +5,7 @@ import { PrivyProvider } from '@/components/PrivyProvider'
 import { TopNav } from '@/components/TopNav'
 import { ClientLayout } from '@/components/ClientLayout'
 import { Footer } from '@/components/Footer'
+import { ScarabWelcomeBanner } from '@/components/ScarabWelcomeBanner'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -53,6 +54,8 @@ export default function RootLayout({
             </div>
             <Footer />
           </div>
+          {/* Show welcome banner with free Scarab claim for first-time users */}
+          <ScarabWelcomeBanner />
         </PrivyProvider>
       </body>
     </html>

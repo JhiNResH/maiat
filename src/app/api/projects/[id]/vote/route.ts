@@ -28,28 +28,46 @@ export async function POST(
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }
 
-    // Spend Scarab (-5 for project vote)
-    try {
-      await spendScarab(address, 'vote_spend', projectId)
-    } catch (e: any) {
-      return NextResponse.json({ error: e.message }, { status: 400 })
+    const normalizedAddress = address.toLowerCase()
+
+    // Duplicate vote guard: check if this address already voted for this project this week
+    const weekStart = new Date()
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay()) // Sunday
+    weekStart.setHours(0, 0, 0, 0)
+
+    const existingVote = await prisma.scarabTransaction.findFirst({
+      where: {
+        address: normalizedAddress,
+        type: 'vote_spend',
+        referenceId: projectId,
+        createdAt: { gte: weekStart },
+      },
+    })
+
+    if (existingVote) {
+      return NextResponse.json(
+        { error: 'Already voted on this project this week' },
+        { status: 409 }
+      )
     }
 
-    // Find or create user
-    let user = await prisma.user.findUnique({
-      where: { address: address.toLowerCase() },
-    })
+    // Find or create user (must exist before spending Scarab)
+    let user = await prisma.user.findUnique({ where: { address: normalizedAddress } })
     if (!user) {
       user = await prisma.user.create({
         data: {
-          address: address.toLowerCase(),
+          address: normalizedAddress,
           displayName: address.substring(0, 10),
         },
       })
     }
 
-    // Record vote (simple count, not storing individual votes for now)
-    // In future, you could add a ProjectVote model to track individual votes
+    // Spend Scarab (-5 for project vote)
+    try {
+      await spendScarab(normalizedAddress, 'vote_spend', projectId)
+    } catch (e: any) {
+      return NextResponse.json({ error: e.message }, { status: 400 })
+    }
 
     return NextResponse.json({
       success: true,
