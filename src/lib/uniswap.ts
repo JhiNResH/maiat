@@ -27,6 +27,11 @@ export interface SwapQuoteResponse {
   }
   routing: string  // CLASSIC, DUTCH_V2, etc.
   permitData?: any
+  methodParameters?: {
+    calldata: string   // Hex-encoded calldata for Universal Router
+    value: string      // ETH value to send (hex)
+    to: string         // Universal Router address
+  }
   gasFee?: string
   gasFeeUSD?: string
   routeString?: string

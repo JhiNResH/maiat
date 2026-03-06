@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { usePrivy } from '@privy-io/react-auth'
-import { ArrowDown, Shield, AlertTriangle, Loader2, ChevronDown, X, Check } from 'lucide-react'
+import { usePrivy, useWallets } from '@privy-io/react-auth'
+import { ArrowDown, Shield, AlertTriangle, Loader2, ChevronDown, X, Check, ExternalLink } from 'lucide-react'
 
 const TOKENS = [
   { symbol: 'ETH', name: 'Ethereum', address: '0x0000000000000000000000000000000000000000', decimals: 18, color: '#627EEA' },
@@ -84,17 +84,20 @@ interface QuoteResult {
 
 export function SwapWidget() {
   const { authenticated, user, login, logout } = usePrivy()
+  const { wallets } = useWallets()
   const [tokenIn, setTokenIn] = useState(TOKENS[0])
   const [tokenOut, setTokenOut] = useState(TOKENS[1])
   const [amount, setAmount] = useState('')
   const [loading, setLoading] = useState(false)
+  const [broadcasting, setBroadcasting] = useState(false)
+  const [txHash, setTxHash] = useState<string | null>(null)
   const [result, setResult] = useState<QuoteResult | null>(null)
   const [modalFor, setModalFor] = useState<'in' | 'out' | null>(null)
   const address = user?.wallet?.address
 
   const handleQuote = async () => {
     if (!amount || !address) return
-    setLoading(true); setResult(null)
+    setLoading(true); setResult(null); setTxHash(null)
     try {
       const amountWei = BigInt(Math.floor(parseFloat(amount) * (10 ** tokenIn.decimals))).toString()
       const res = await fetch('/api/swap', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tokenIn: tokenIn.address, tokenOut: tokenOut.address, amount: amountWei, chainId: 8453, swapper: address, type: 'EXACT_INPUT' }) })
@@ -103,7 +106,44 @@ export function SwapWidget() {
     finally { setLoading(false) }
   }
 
-  const swapTokens = () => { setTokenIn(tokenOut); setTokenOut(tokenIn); setResult(null) }
+  /** Broadcast the quoted swap via Privy wallet → Base mainnet */
+  const handleSwap = async () => {
+    if (!result?.allowed || !result.quote) return
+    const methodParams = (result.quote as any).methodParameters
+    if (!methodParams?.calldata || !methodParams?.to) {
+      // Fallback: open Uniswap interface with pre-filled params
+      const uniUrl = `https://app.uniswap.org/#/swap?inputCurrency=${tokenIn.address}&outputCurrency=${tokenOut.address}&exactAmount=${amount}&exactField=input`
+      window.open(uniUrl, '_blank')
+      return
+    }
+
+    setBroadcasting(true)
+    try {
+      const wallet = wallets.find(w => w.address === address)
+      if (!wallet) throw new Error('Wallet not found')
+      const provider = await wallet.getEthereumProvider()
+
+      // Switch to Base mainnet (chainId 8453)
+      await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x2105' }] })
+
+      const txHashResult = await provider.request({
+        method: 'eth_sendTransaction',
+        params: [{
+          from: address,
+          to: methodParams.to,
+          data: methodParams.calldata,
+          value: methodParams.value || '0x0',
+        }],
+      })
+      setTxHash(txHashResult as string)
+    } catch (e: any) {
+      alert(`Swap failed: ${e.message}`)
+    } finally {
+      setBroadcasting(false)
+    }
+  }
+
+  const swapTokens = () => { setTokenIn(tokenOut); setTokenOut(tokenIn); setResult(null); setTxHash(null) }
   const outputAmount = result?.quote?.quote?.output?.amount ? (Number(result.quote.quote.output.amount) / (10 ** tokenOut.decimals)).toFixed(4) : ''
 
   return (
@@ -215,16 +255,27 @@ export function SwapWidget() {
           )}
 
           {/* Button */}
-          <div className="mt-2">
+          <div className="mt-2 space-y-2">
             {!authenticated ? (
               <button onClick={login} className="w-full py-4 rounded-2xl font-bold text-base text-white transition-all hover:opacity-90 active:scale-[0.98]"
                 style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' }}>Connect Wallet</button>
+            ) : txHash ? (
+              <a href={`https://basescan.org/tx/${txHash}`} target="_blank" rel="noopener"
+                className="w-full py-4 rounded-2xl font-bold text-base text-white transition-all hover:opacity-90 flex items-center justify-center gap-2"
+                style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}>
+                <Check className="w-5 h-5" /> Swap confirmed — view on BaseScan <ExternalLink className="w-4 h-4" />
+              </a>
+            ) : result?.allowed ? (
+              <button onClick={handleSwap} disabled={broadcasting}
+                className="w-full py-4 rounded-2xl font-bold text-base text-white transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}>
+                {broadcasting ? <><Loader2 className="w-5 h-5 animate-spin" />Broadcasting...</> : `Confirm Swap ${tokenIn.symbol} → ${tokenOut.symbol}`}
+              </button>
             ) : (
               <button onClick={handleQuote} disabled={loading || !amount}
                 className="w-full py-4 rounded-2xl font-bold text-base text-white transition-all hover:opacity-90 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                style={{ background: result?.allowed ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' }}>
-                {loading ? <><Loader2 className="w-5 h-5 animate-spin" />Checking trust score...</>
-                  : result?.allowed ? `Swap ${tokenIn.symbol} → ${tokenOut.symbol}` : !amount ? 'Enter an amount' : 'Get Quote'}
+                style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' }}>
+                {loading ? <><Loader2 className="w-5 h-5 animate-spin" />Checking trust score...</> : !amount ? 'Enter an amount' : 'Get Quote'}
               </button>
             )}
           </div>
