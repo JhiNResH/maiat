@@ -95,11 +95,22 @@ export function SwapWidget() {
   const [modalFor, setModalFor] = useState<'in' | 'out' | null>(null)
   const address = user?.wallet?.address
 
+  // Uniswap Universal Router addresses (Base mainnet + Sepolia)
+  // https://docs.uniswap.org/contracts/v3/reference/deployments
+  const UNISWAP_ROUTERS = new Set([
+    '0x3fc91a3afd70395cd496c647d5a6cc9d4b2b7fad', // Universal Router v2 (Base mainnet)
+    '0x198ef79f1f515f02dfe9e3115ed9fc07183f02fc', // Universal Router v1 (Base mainnet)
+    '0x050e797f3625ec8785265e1d9bcd4ce2215e7ac0', // Universal Router (Base Sepolia)
+  ])
+
   const handleQuote = async () => {
     if (!amount || !address) return
+    // Validate amount: positive, ≤ 1M (sanity cap), finite
+    const parsed = parseFloat(amount)
+    if (!isFinite(parsed) || parsed <= 0 || parsed > 1_000_000) return
     setLoading(true); setResult(null); setTxHash(null)
     try {
-      const amountWei = BigInt(Math.floor(parseFloat(amount) * (10 ** tokenIn.decimals))).toString()
+      const amountWei = BigInt(Math.floor(parsed * (10 ** tokenIn.decimals))).toString()
       const res = await fetch('/api/swap', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tokenIn: tokenIn.address, tokenOut: tokenOut.address, amount: amountWei, chainId: 8453, swapper: address, type: 'EXACT_INPUT' }) })
       setResult(await res.json())
     } catch (e: any) { setResult({ allowed: false, error: e.message }) }
@@ -112,8 +123,15 @@ export function SwapWidget() {
     const methodParams = (result.quote as any).methodParameters
     if (!methodParams?.calldata || !methodParams?.to) {
       // Fallback: open Uniswap interface with pre-filled params
-      const uniUrl = `https://app.uniswap.org/#/swap?inputCurrency=${tokenIn.address}&outputCurrency=${tokenOut.address}&exactAmount=${amount}&exactField=input`
-      window.open(uniUrl, '_blank')
+      const uniUrl = `https://app.uniswap.org/#/swap?inputCurrency=${encodeURIComponent(tokenIn.address)}&outputCurrency=${encodeURIComponent(tokenOut.address)}&exactAmount=${encodeURIComponent(amount)}&exactField=input`
+      const win = window.open(uniUrl, '_blank', 'noopener,noreferrer')
+      if (win) win.opener = null
+      return
+    }
+
+    // Verify `to` is a known Uniswap Universal Router (prevent calldata injection)
+    if (!UNISWAP_ROUTERS.has(methodParams.to.toLowerCase())) {
+      alert(`Security: unexpected router address ${methodParams.to}. Swap blocked.`)
       return
     }
 
@@ -260,7 +278,7 @@ export function SwapWidget() {
               <button onClick={login} className="w-full py-4 rounded-2xl font-bold text-base text-white transition-all hover:opacity-90 active:scale-[0.98]"
                 style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' }}>Connect Wallet</button>
             ) : txHash ? (
-              <a href={`https://basescan.org/tx/${txHash}`} target="_blank" rel="noopener"
+              <a href={`https://basescan.org/tx/${txHash}`} target="_blank" rel="noopener noreferrer"
                 className="w-full py-4 rounded-2xl font-bold text-base text-white transition-all hover:opacity-90 flex items-center justify-center gap-2"
                 style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}>
                 <Check className="w-5 h-5" /> Swap confirmed — view on BaseScan <ExternalLink className="w-4 h-4" />

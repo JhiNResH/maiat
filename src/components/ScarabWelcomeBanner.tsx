@@ -17,6 +17,7 @@ export function ScarabWelcomeBanner() {
   const [show, setShow] = useState(false)
   const [claiming, setClaiming] = useState(false)
   const [claimed, setClaimed] = useState(false)
+  const [claimError, setClaimError] = useState<string | null>(null)
 
   const address = user?.wallet?.address
 
@@ -49,6 +50,7 @@ export function ScarabWelcomeBanner() {
   const handleClaim = async () => {
     if (!address || claiming) return
     setClaiming(true)
+    setClaimError(null)
     try {
       const res = await fetch('/api/scarab/claim', {
         method: 'POST',
@@ -61,7 +63,7 @@ export function ScarabWelcomeBanner() {
       if (address) localStorage.setItem(`scarab_welcome_dismissed_${address}`, '1')
       setTimeout(() => setShow(false), 3000)
     } catch (e: any) {
-      alert(e.message)
+      setClaimError(e.message)
     } finally {
       setClaiming(false)
     }
@@ -105,6 +107,9 @@ export function ScarabWelcomeBanner() {
             >
               {claiming ? '⏳ Claiming...' : '🎁 Claim 20 Scarab — free for new users'}
             </button>
+            {claimError && (
+              <p className="mt-2 text-xs text-red-400 text-center">❌ {claimError}</p>
+            )}
           </>
         )}
       </div>
