@@ -157,6 +157,28 @@ export async function spendScarab(
   const cost = type === 'review_spend' ? SCARAB_CONFIG.REVIEW_COST : SCARAB_CONFIG.VOTE_COST
 
   return prisma.$transaction(async (tx) => {
+    // ── TOCTOU-safe weekly vote dedup ──────────────────────────────────────
+    // Check inside the transaction so concurrent requests can't both pass.
+    if (type === 'vote_spend' && referenceId) {
+      const weekStart = new Date()
+      weekStart.setDate(weekStart.getDate() - weekStart.getDay()) // Sunday
+      weekStart.setHours(0, 0, 0, 0)
+
+      const existingVote = await tx.scarabTransaction.findFirst({
+        where: {
+          address: normalized,
+          type: 'vote_spend',
+          referenceId,
+          createdAt: { gte: weekStart },
+        },
+      })
+
+      if (existingVote) {
+        throw new Error('Already voted on this project this week')
+      }
+    }
+    // ──────────────────────────────────────────────────────────────────────
+
     const bal = await tx.scarabBalance.findUnique({
       where: { address: normalized },
     })
